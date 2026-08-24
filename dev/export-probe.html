@@ -1,0 +1,349 @@
+<!doctype html>
+<!--
+  Export verification harness.
+
+  Exercises all six export actions the way the ExportBar calls them and reports a
+  machine-checkable result for each. Downloads are intercepted at
+  `HTMLAnchorElement.click()` — the anchor's blob URL is fetched back so the
+  exact bytes the browser would have written to disk are the bytes under test,
+  without scattering files across the filesystem.
+
+  Served by Vite in dev only; `dev/` is outside `public/` so it never ships.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; padding: 20px; font: 13px/1.5 ui-monospace, monospace; background: #fff; color: #111 }
+      h1 { font-size: 15px; margin: 0 0 14px }
+      table { border-collapse: collapse; width: 100%; max-width: 900px }
+      td, th { text-align: left; padding: 5px 10px; border-bottom: 1px solid #eee; vertical-align: top }
+      th { font-weight: 600; color: #666 }
+      .pass { color: #087443; font-weight: 700 }
+      .fail { color: #c62a2f; font-weight: 700 }
+      .gallery { display: flex; gap: 16px; margin-top: 20px; align-items: flex-start; flex-wrap: wrap }
+      .cell { font-size: 11px; color: #666 }
+      .checker {
+        background-image:
+          linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%),
+          linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%);
+        background-size: 16px 16px; background-position: 0 0, 8px 8px;
+      }
+      iframe { border: 1px solid #eee }
+    </style>
+  </head>
+  <body>
+    <h1 id="head">running…</h1>
+    <table><tbody id="rows"></tbody></table>
+
+    <div class="gallery">
+      <div><div class="cell">PNG (checkerboard = alpha)</div><img id="png" class="checker" width="180" height="180" /></div>
+      <div><div class="cell">SVG</div><img id="svg" width="180" height="180" /></div>
+      <div><div class="cell">animated.svg in an iframe</div>
+        <div style="width:180px;height:180px;overflow:hidden;border:1px solid #eee">
+          <iframe id="anim" width="512" height="512" scrolling="no"
+            style="border:0;transform:scale(0.3516);transform-origin:0 0"></iframe>
+        </div>
+      </div>
+      <div><div class="cell">GIF</div><img id="gif" width="180" height="180" /></div>
+    </div>
+
+    <script type="module">
+      import {
+        EXPORT_ACTIONS,
+        DEFAULT_EXPORT_SETTINGS,
+        staticSvg,
+        animatedSvg,
+        formatBytes,
+      } from '/src/utils/export.ts'
+      import { moodMotion } from '/src/moods/index.ts'
+
+      const rows = document.getElementById('rows')
+      let failures = 0
+
+      function report(name, ok, detail) {
+        if (!ok) failures++
+        const tr = document.createElement('tr')
+        tr.innerHTML =
+          `<td style="width:190px">${name}</td>` +
+          `<td class="${ok ? 'pass' : 'fail'}" style="width:52px">${ok ? 'PASS' : 'FAIL'}</td>` +
+          `<td>${detail}</td>`
+        rows.appendChild(tr)
+      }
+
+      /* ---- intercept downloads ------------------------------------------ */
+      const downloads = []
+      const realClick = HTMLAnchorElement.prototype.click
+      HTMLAnchorElement.prototype.click = function () {
+        if (this.download) downloads.push({ name: this.download, href: this.href })
+        else realClick.call(this)
+      }
+      const lastDownload = () => downloads[downloads.length - 1]
+
+      const config = { shape: 'pebble', mood: 'happy', color: '#111113' }
+      const settings = { ...DEFAULT_EXPORT_SETTINGS }
+
+      /** Read the bytes the browser would have saved. */
+      async function downloadedBytes() {
+        const d = lastDownload()
+        if (!d) throw new Error('no download was triggered')
+        const buf = await (await fetch(d.href)).arrayBuffer()
+        return { name: d.name, bytes: new Uint8Array(buf) }
+      }
+
+      /* ---- 1. PNG -------------------------------------------------------- */
+      try {
+        const before = downloads.length
+        const result = await EXPORT_ACTIONS.png(config, settings)
+        const triggered = downloads.length === before + 1
+        const { name, bytes } = await downloadedBytes()
+
+        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+        // IHDR: width/height are big-endian uint32 at byte 16 and 20.
+        const view = new DataView(bytes.buffer)
+        const w = view.getUint32(16)
+        const h = view.getUint32(20)
+        const expected = DEFAULT_EXPORT_SETTINGS.size * DEFAULT_EXPORT_SETTINGS.scale
+
+        // Decode and read the corner pixel to prove the alpha channel is empty.
+        const blob = new Blob([bytes], { type: 'image/png' })
+        document.getElementById('png').src = URL.createObjectURL(blob)
+        const bmp = await createImageBitmap(blob)
+        const c = document.createElement('canvas')
+        c.width = bmp.width
+        c.height = bmp.height
+        const ctx = c.getContext('2d')
+        ctx.drawImage(bmp, 0, 0)
+        const corner = ctx.getImageData(2, 2, 1, 1).data
+        const centre = ctx.getImageData(bmp.width >> 1, bmp.height >> 1, 1, 1).data
+
+        report(
+          '1 · Download PNG',
+          triggered && result.ok && isPng && w === expected && h === expected &&
+            corner[3] === 0 && centre[3] === 255,
+          `triggered=${triggered} file=${name} magic=PNG ${w}×${h} (expected ${expected}) ` +
+            `cornerAlpha=${corner[3]} centreAlpha=${centre[3]} ${formatBytes(bytes.length)} — “${result.message}”`,
+        )
+      } catch (e) {
+        report('1 · Download PNG', false, `threw: ${e.message}`)
+      }
+
+      /* ---- 2. SVG -------------------------------------------------------- */
+      try {
+        const before = downloads.length
+        const result = await EXPORT_ACTIONS.svg(config, settings)
+        const triggered = downloads.length === before + 1
+        const { name, bytes } = await downloadedBytes()
+        const text = new TextDecoder().decode(bytes)
+
+        const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
+        const parseError = doc.querySelector('parsererror')
+        const paths = doc.querySelectorAll('path').length
+        const hasBgRect = /<rect[^>]*fill="#ffffff"/.test(text)
+
+        document.getElementById('svg').src =
+          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text)
+
+        report(
+          '2 · Download SVG',
+          triggered && result.ok && !parseError && paths >= 3 && !hasBgRect,
+          `triggered=${triggered} file=${name} parses=${!parseError} paths=${paths} ` +
+            `transparent=${!hasBgRect} ${formatBytes(bytes.length)} — “${result.message}”`,
+        )
+      } catch (e) {
+        report('2 · Download SVG', false, `threw: ${e.message}`)
+      }
+
+      /* ---- 3. animated SVG ---------------------------------------------- */
+      try {
+        const before = downloads.length
+        const result = await EXPORT_ACTIONS.animatedSvg(config, settings)
+        const triggered = downloads.length === before + 1
+        const { name, bytes } = await downloadedBytes()
+        const text = new TextDecoder().decode(bytes)
+
+        const hasKeyframes = /@keyframes/.test(text)
+        const noScript = !/<script/i.test(text)
+
+        // The real question: does it animate when a browser opens the file?
+        // Load it as a standalone document in an iframe and watch the animated
+        // group's transform matrix over time.
+        const frame = document.getElementById('anim')
+        const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }))
+        await new Promise((resolve) => {
+          frame.onload = resolve
+          frame.src = url
+        })
+        const inner = frame.contentDocument
+        const group = inner.querySelector('g[class]')
+        const anims = inner.getAnimations ? inner.getAnimations() : []
+        const running = anims.length
+        const playing = anims.filter((a) => a.playState === 'running').length
+
+        // Drive the animation clock directly instead of waiting on wall-clock
+        // timers — deterministic, and immune to how a headless browser paces
+        // virtual time. Sampling the body group's matrix at three points in the
+        // loop proves the keyframes actually move it.
+        const matrixAt = (ms) => {
+          anims.forEach((a) => {
+            a.pause()
+            a.currentTime = ms
+          })
+          const m = group.getCTM()
+          return `${m.a.toFixed(5)},${m.d.toFixed(5)},${m.e.toFixed(4)},${m.f.toFixed(4)}`
+        }
+        const period = moodMotion(config.mood).loopPeriod * 1000
+        const first = matrixAt(0)
+        const second = matrixAt(period * 0.33)
+        const third = matrixAt(period * 0.66)
+        const moves = first !== second && second !== third && first !== third
+        anims.forEach((a) => a.play()) // hand the clock back so the gallery animates
+
+        report(
+          '3 · Download animated SVG',
+          triggered && result.ok && hasKeyframes && noScript && moves && playing === running &&
+            running > 0,
+          `triggered=${triggered} file=${name} @keyframes=${hasKeyframes} scriptFree=${noScript} ` +
+            `animations=${running} (${playing} auto-playing) moved=${moves} ` +
+            `[${first} → ${second} → ${third}] ${formatBytes(bytes.length)} — “${result.message}”`,
+        )
+      } catch (e) {
+        report('3 · Download animated SVG', false, `threw: ${e.message}`)
+      }
+
+      /* ---- 4. GIF -------------------------------------------------------- */
+      // Runs last, and behind a main-thread keep-alive. gif.js encodes in a web
+      // worker, which leaves this thread idle — and an idle main thread lets a
+      // headless browser's virtual clock fast-forward straight past the encode.
+      // Spinning here in short slices keeps the task queue busy so virtual time
+      // stays pinned to roughly real time until the worker is done.
+      async function testGif() {
+        let spinning = true
+        const keepAlive = () => {
+          if (!spinning) return
+          const until = performance.now() + 12
+          while (performance.now() < until) {
+            /* hold the clock */
+          }
+          setTimeout(keepAlive, 0)
+        }
+        keepAlive()
+        try {
+          const before = downloads.length
+          let seen = 0
+          const result = await EXPORT_ACTIONS.gif(config, settings, {
+            onProgress: (p) => {
+              seen = p
+            },
+          })
+          spinning = false
+          const triggered = downloads.length === before + 1
+          const { name, bytes } = await downloadedBytes()
+
+          const magic = new TextDecoder().decode(bytes.slice(0, 6))
+          // The Netscape looping extension: 21 FF 0B "NETSCAPE2.0" 03 01 <loop u16>
+          let loopCount = null
+          let frames = 0
+          for (let i = 0; i < bytes.length - 20; i++) {
+            if (bytes[i] === 0x21 && bytes[i + 1] === 0xff && bytes[i + 2] === 0x0b) {
+              const tag = new TextDecoder().decode(bytes.slice(i + 3, i + 14))
+              if (tag === 'NETSCAPE2.0') loopCount = bytes[i + 16] | (bytes[i + 17] << 8)
+            }
+            if (bytes[i] === 0x2c) frames++ // image descriptor
+          }
+          const expectedFrames = Math.min(
+            Math.max(Math.round(moodMotion(config.mood).loopPeriod * 14), 24),
+            56,
+          )
+
+          const blob = new Blob([bytes], { type: 'image/gif' })
+          document.getElementById('gif').src = URL.createObjectURL(blob)
+          const bmp = await createImageBitmap(blob)
+
+          report(
+            '4 · Download animated GIF',
+            triggered && result.ok && magic === 'GIF89a' && loopCount === 0 &&
+              frames >= expectedFrames - 2 && bytes.length < 2_000_000,
+            `triggered=${triggered} file=${name} magic=${magic} loopCount=${loopCount} (0=forever) ` +
+              `frames≈${frames} (expected ${expectedFrames}) ${bmp.width}×${bmp.height} ` +
+              `${formatBytes(bytes.length)} progress→${Math.round(seen * 100)}% — “${result.message}”`,
+          )
+        } catch (e) {
+          spinning = false
+          report('4 · Download animated GIF', false, `threw: ${e.message}`)
+        }
+      }
+
+      /* ---- 5. copy image ------------------------------------------------- */
+      try {
+        const result = await EXPORT_ACTIONS.copyImage(config, settings)
+        let readBack = 'not attempted'
+        if (result.ok && navigator.clipboard?.read) {
+          try {
+            const items = await navigator.clipboard.read()
+            readBack = items.flatMap((i) => i.types).join(',') || 'empty'
+          } catch (e) {
+            readBack = `read blocked: ${e.name}`
+          }
+        }
+        report(
+          '5 · Copy image',
+          result.ok,
+          `apiPresent=${typeof ClipboardItem !== 'undefined' && !!navigator.clipboard?.write} ` +
+            `clipboardTypes=[${readBack}] — “${result.message}”`,
+        )
+      } catch (e) {
+        report('5 · Copy image', false, `threw: ${e.message}`)
+      }
+
+      /* ---- 6. copy SVG --------------------------------------------------- */
+      try {
+        const expected = staticSvg(config, settings)
+        const result = await EXPORT_ACTIONS.copySvg(config, settings)
+        let match = 'not attempted'
+        if (result.ok && navigator.clipboard?.readText) {
+          try {
+            const text = await navigator.clipboard.readText()
+            match = text === expected ? 'exact match' : `mismatch (${text.length} vs ${expected.length} chars)`
+          } catch (e) {
+            match = `read blocked: ${e.name}`
+          }
+        }
+        report(
+          '6 · Copy SVG',
+          result.ok,
+          `${formatBytes(new Blob([expected]).size)} of markup, readback=${match} — “${result.message}”`,
+        )
+      } catch (e) {
+        report('6 · Copy SVG', false, `threw: ${e.message}`)
+      }
+
+      /* ---- extras: every mood's animated SVG must be well-formed --------- */
+      try {
+        const { MOODS } = await import('/src/moods/index.ts')
+        const bad = []
+        for (const mood of MOODS) {
+          const text = animatedSvg({ ...config, mood: mood.id }, settings)
+          const doc = new DOMParser().parseFromString(text, 'image/svg+xml')
+          if (doc.querySelector('parsererror') || !/@keyframes/.test(text)) bad.push(mood.id)
+        }
+        report(
+          `all ${MOODS.length} moods · animated SVG`,
+          bad.length === 0,
+          bad.length ? `malformed: ${bad.join(', ')}` : 'every mood produces a valid animated document',
+        )
+      } catch (e) {
+        report('all 26 moods · animated SVG', false, `threw: ${e.message}`)
+      }
+
+      // GIF is by far the slowest; run it last so the fast checks report first.
+      await testGif()
+
+      HTMLAnchorElement.prototype.click = realClick
+      const head = document.getElementById('head')
+      head.textContent = failures === 0 ? 'ALL EXPORT CHECKS PASSED' : `${failures} CHECK(S) FAILED`
+      head.className = failures === 0 ? 'pass' : 'fail'
+      document.title = failures === 0 ? 'PASS' : 'FAIL'
+    </script>
+  </body>
+</html>

@@ -1,0 +1,260 @@
+/**
+ * BlobPreview — the live, animated blob.
+ *
+ * Three animation systems compose here, each owning a different concern:
+ *
+ * - `useShapeMorph`  → the body path and the face's fit inside it
+ * - `useFaceMotion`  → one spring per face property, for mood changes
+ * - `useIdleMotion`  → the always-running breath, blink and gaze
+ *
+ * They never fight because they write to different things: the morph owns `d`,
+ * the face springs own the face numbers, and idle owns one wrapper `transform`
+ * plus the blink and gaze offsets. All of it runs on MotionValues, so the whole
+ * animation costs zero React renders.
+ *
+ * Every visible piece is a `<motion.path>` with position and rotation baked into
+ * its path data — no per-element transforms — which keeps what you see here and
+ * what lands in an exported file identical.
+ */
+
+import { useEffect, useMemo } from 'react'
+import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
+import type { MotionValue } from 'framer-motion'
+import { curvePath, ellipsePath, featureColor, superellipsePath } from '../core/geometry'
+import {
+  BLUSH,
+  FACE_ORIGIN,
+  blinkBend,
+  blinkOffset,
+  blinkPupil,
+  blinkRy,
+  blinkThick,
+} from '../core/face'
+import { VIEWBOX } from '../core/generateBlob'
+import { scope, useFaceMotion } from '../animation/useFaceMotion'
+import { useShapeMorph } from '../animation/useShapeMorph'
+import { useIdleMotion } from '../animation/useIdleMotion'
+import type { FaceGetter, FaceValues } from '../animation/useFaceMotion'
+import type { BlobConfig } from '../core/types'
+
+const COLOR_TRANSITION = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const
+
+/** Animate a colour MotionValue whenever the target hex changes. */
+function useAnimatedColor(target: string): MotionValue<string> {
+  const value = useMotionValue(target)
+  useEffect(() => {
+    const running = animate(value, target, COLOR_TRANSITION)
+    return () => running.stop()
+  }, [target, value])
+  return value
+}
+
+interface EyeProps {
+  get: FaceGetter
+  features: MotionValue<string>
+  body: MotionValue<string>
+  /** 1 = open, 0 = fully closed. Shared by both eyes so blinks stay in sync. */
+  blink: MotionValue<number>
+  gazeX: MotionValue<number>
+  gazeY: MotionValue<number>
+}
+
+function Eye({ get, features, body, blink, gazeX, gazeY }: EyeProps) {
+  const cx = get('cx')
+  const cy = get('cy')
+
+  const ball = useTransform(
+    [cx, cy, get('rx'), get('ry'), get('sq'), get('rot'), blink, gazeX, gazeY],
+    (v: number[]) => {
+      const [x, y, rx, ry, sq, rot, b, gx, gy] = v
+      return superellipsePath({
+        cx: x + gx,
+        cy: y + gy,
+        rx,
+        // Blink formulas live in core/face.ts, shared with the exporters, so a
+        // GIF frame and this frame are computed by the same code.
+        ry: blinkRy(ry, b),
+        rot,
+        n: sq,
+      })
+    },
+  )
+
+  const arc = useTransform(
+    [
+      cx,
+      cy,
+      get('arc.dx'),
+      get('arc.dy'),
+      get('arc.w'),
+      get('arc.bend'),
+      get('arc.thick'),
+      get('arc.wave'),
+      get('arc.rot'),
+      blink,
+      gazeX,
+      gazeY,
+    ],
+    (v: number[]) => {
+      const [x, y, dx, dy, w, bend, thick, wave, rot, b, gx, gy] = v
+      return curvePath({
+        cx: x + dx + gx,
+        cy: y + dy + gy,
+        w,
+        // Blinking flattens the arch and thins the band, so `^^` eyes blink too.
+        bend: blinkBend(bend, b),
+        thick: blinkThick(thick, b),
+        wave,
+        rot,
+      })
+    },
+  )
+
+  const pupil = useTransform(
+    [cx, cy, get('pupil.dx'), get('pupil.dy'), get('pupil.r'), blink, gazeX, gazeY],
+    (v: number[]) => {
+      const [x, y, dx, dy, r, b, gx, gy] = v
+      const rb = blinkPupil(r, b)
+      return ellipsePath({
+        cx: x + dx + gx,
+        cy: y + blinkOffset(dy, b) + gy,
+        rx: rb,
+        ry: rb,
+      })
+    },
+  )
+
+  const brow = useTransform(
+    [
+      cx,
+      cy,
+      get('brow.dx'),
+      get('brow.dy'),
+      get('brow.w'),
+      get('brow.bend'),
+      get('brow.thick'),
+      get('brow.wave'),
+      get('brow.rot'),
+      gazeX,
+    ],
+    (v: number[]) => {
+      const [x, y, dx, dy, w, bend, thick, wave, rot, gx] = v
+      // Brows follow the gaze at half strength — they're anchored to the head,
+      // not to the eyes.
+      return curvePath({ cx: x + dx + gx * 0.5, cy: y + dy, w, bend, thick, wave, rot })
+    },
+  )
+
+  return (
+    <>
+      <motion.path d={ball} fill={features} opacity={get('op')} />
+      <motion.path d={arc} fill={features} opacity={get('arc.op')} />
+      <motion.path d={pupil} fill={body} opacity={get('pupil.op')} />
+      <motion.path d={brow} fill={features} opacity={get('brow.op')} />
+    </>
+  )
+}
+
+/** Blush, tear and sweat — fixed geometry, opacity-driven. */
+function Garnishes({ values, features }: { values: FaceValues; features: MotionValue<string> }) {
+  const blushOp = useTransform(values.blush, (v: number) => v * BLUSH.strength)
+  const blushLeft = useMemo(
+    () => ellipsePath({ cx: 100 - BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
+    [],
+  )
+  const blushRight = useMemo(
+    () => ellipsePath({ cx: 100 + BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
+    [],
+  )
+
+  const tear = useTransform(
+    [values['tear.x'], values['tear.y'], values['tear.r']],
+    (v: number[]) => ellipsePath({ cx: v[0], cy: v[1], rx: v[2] * 0.78, ry: v[2] }),
+  )
+  const sweat = useTransform(
+    [values['sweat.x'], values['sweat.y'], values['sweat.r']],
+    (v: number[]) => ellipsePath({ cx: v[0], cy: v[1], rx: v[2] * 0.72, ry: v[2] }),
+  )
+
+  return (
+    <>
+      <motion.path d={blushLeft} fill={features} opacity={blushOp} />
+      <motion.path d={blushRight} fill={features} opacity={blushOp} />
+      <motion.path d={tear} fill={features} opacity={values['tear.op']} />
+      <motion.path d={sweat} fill={features} opacity={values['sweat.op']} />
+    </>
+  )
+}
+
+export interface BlobPreviewProps {
+  config: BlobConfig
+  size?: number
+  className?: string
+  /** Pause the idle loop (used while capturing frames for export). */
+  idle?: boolean
+}
+
+/**
+ * The blob is drawn purely from `config`. Exports are generated from the same
+ * pure functions rather than scraped from this node, so there is no ref to hand
+ * back to the parent — what you see and what you download share a source, not a
+ * DOM element.
+ */
+export function BlobPreview({ config, size = 400, className, idle = true }: BlobPreviewProps) {
+  const values = useFaceMotion(config.mood)
+  const shape = useShapeMorph(config.shape)
+  const { blink, gazeX, gazeY, bodyRef } = useIdleMotion({
+    moodId: config.mood,
+    kick: shape.kick,
+    enabled: idle,
+  })
+
+  const bodyColor = useAnimatedColor(config.color)
+  const featuresColor = useAnimatedColor(featureColor(config.color))
+
+  // The shape's face-fit, as an SVG transform string.
+  const faceFit = useTransform(
+    [shape.faceDx, shape.faceDy, shape.faceScale],
+    (v: number[]) => {
+      const [dx, dy, s] = v
+      const { x, y } = FACE_ORIGIN
+      return `translate(${dx} ${dy}) translate(${x} ${y}) scale(${s}) translate(${-x} ${-y})`
+    },
+  )
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+      fill="none"
+      className={className}
+      aria-label={`${config.mood} blob`}
+      role="img"
+    >
+      {/* Idle motion writes its transform to this group. */}
+      <g ref={bodyRef}>
+        <motion.path d={shape.d} fill={bodyColor} />
+        <motion.g transform={faceFit}>
+          <Eye
+            get={scope(values, 'left')}
+            features={featuresColor}
+            body={bodyColor}
+            blink={blink}
+            gazeX={gazeX}
+            gazeY={gazeY}
+          />
+          <Eye
+            get={scope(values, 'right')}
+            features={featuresColor}
+            body={bodyColor}
+            blink={blink}
+            gazeX={gazeX}
+            gazeY={gazeY}
+          />
+          <Garnishes values={values} features={featuresColor} />
+        </motion.g>
+      </g>
+    </svg>
+  )
+}

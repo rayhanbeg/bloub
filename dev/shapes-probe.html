@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <body style="margin:0;background:#09090b;font:12px Inter,monospace;color:#a1a1aa">
+    <div id="grid" style="display:grid;grid-template-columns:repeat(4,140px);gap:10px;padding:16px"></div>
+    <div id="err" style="color:#f87171;padding:16px;white-space:pre-wrap"></div>
+    <script type="module">
+      const err = document.getElementById('err')
+      try {
+        const { SHAPES } = await import('/src/shapes/index.ts')
+        const { generateBlobSvg } = await import('/src/core/generateBlob.ts')
+        const grid = document.getElementById('grid')
+        for (const s of SHAPES) {
+          const cell = document.createElement('div')
+          const svg = generateBlobSvg(
+            { shape: s.id, mood: 'neutral', color: '#ffb224' },
+            { size: 140 },
+          )
+          cell.innerHTML = svg + `<div style="text-align:center">${s.label}</div>`
+          grid.appendChild(cell)
+        }
+      } catch (e) {
+        err.textContent = 'ERROR: ' + (e && (e.stack || e.message))
+      }
+    </script>
+  </body>
+</html>
