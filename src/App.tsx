@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { BlobPreview } from './components/BlobPreview'
+import { LandingPage } from './components/LandingPage'
 import { ControlPanel } from './components/ControlPanel'
 import { ExportBar } from './components/ExportBar'
 import { Sidebar } from './components/Sidebar'
@@ -8,6 +9,7 @@ import { BlobProvider, useBlob } from './state/BlobProvider'
 import { useCameraReveal } from './animation/useCameraReveal'
 import { INTRO_DELAY, rise, useIntro } from './animation/useIntro'
 import { cn } from './utils/cn'
+import { navigate, ROUTES, usePathname } from './utils/navigation'
 
 /**
  * The preview's box, as a single expression of width.
@@ -45,12 +47,17 @@ function Workspace() {
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:radial-gradient(circle,rgba(9,9,11,0.055)_1px,transparent_1px)] [background-size:22px_22px]"
         />
-        <motion.span
+        <motion.a
           {...rise(play, INTRO_DELAY.wordmark, -6)}
+          href={ROUTES.home}
+          onClick={(event) => {
+            event.preventDefault()
+            navigate(ROUTES.home)
+          }}
           className="absolute left-5 top-4 z-10 select-none text-[13px] font-semibold tracking-tight text-zinc-900 sm:left-6 sm:top-5"
         >
           Bloub
-        </motion.span>
+        </motion.a>
 
         {/* `lg:flex-1` only: on mobile the stage is auto-height, and a flex child
             with a zero basis in an auto-height column can collapse to nothing. */}
@@ -96,10 +103,12 @@ function Workspace() {
 }
 
 export default function App() {
+  const pathname = usePathname()
+
   return (
     <BlobProvider>
       <ToastProvider>
-        <Workspace />
+        {pathname === ROUTES.home ? <LandingPage /> : <Workspace />}
       </ToastProvider>
     </BlobProvider>
   )

@@ -12,24 +12,29 @@ import { DEFAULT_COLOR, PALETTE } from '../core/palette'
 import { DEFAULT_EXPORT_SETTINGS } from '../utils/export'
 import type { ExportSettings } from '../utils/export'
 import type { BlobConfig } from '../core/types'
+import { ROUTES, navigate, normalPathname } from '../utils/navigation'
 
 export { DEFAULT_COLOR }
 
 /** Which panel the left icon rail is showing. */
 export type Tab = 'style' | 'presets' | 'settings'
 
-/** The app has three section-level routes; the editor's style section is home. */
+/** The editor owns the style, presets and settings section routes. */
 const TAB_PATHS: Record<Tab, string> = {
-  style: '/',
-  presets: '/presets',
-  settings: '/settings',
+  style: ROUTES.editor,
+  presets: ROUTES.presets,
+  settings: ROUTES.settings,
 }
-
-const normalPathname = (pathname: string): string => pathname.replace(/\/+$/, '') || '/'
 
 function tabForPathname(pathname: string): Tab | undefined {
   const path = normalPathname(pathname)
-  return path === '/settings' ? 'settings' : path === '/presets' ? 'presets' : path === '/' ? 'style' : undefined
+  return path === ROUTES.settings
+    ? 'settings'
+    : path === ROUTES.presets
+      ? 'presets'
+      : path === ROUTES.editor
+        ? 'style'
+        : undefined
 }
 
 const initialTab = (): Tab =>
@@ -121,7 +126,7 @@ export function BlobProvider({ children }: { children: ReactNode }) {
     setTabState(next)
     if (typeof window === 'undefined') return
     const target = TAB_PATHS[next]
-    if (normalPathname(window.location.pathname) !== target) window.history.pushState(null, '', target)
+    navigate(target)
   }, [])
 
   // Browser Back/Forward and direct/deep links are the source of truth for the
@@ -131,9 +136,10 @@ export function BlobProvider({ children }: { children: ReactNode }) {
       const next = tabForPathname(window.location.pathname)
       if (next) {
         setTabState(next)
-      } else {
-        window.history.replaceState(null, '', TAB_PATHS.style)
+      } else if (normalPathname(window.location.pathname) !== ROUTES.home) {
+        window.history.replaceState(null, '', ROUTES.home)
         setTabState('style')
+        window.dispatchEvent(new PopStateEvent('popstate'))
       }
     }
     applyLocation()
