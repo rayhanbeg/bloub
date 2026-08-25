@@ -110,6 +110,11 @@ export interface BlobPreviewProps {
   className?: string
   /** Pause the idle loop (used while capturing frames for export). */
   idle?: boolean
+  /**
+   * Play the one-time "coming to life" script on mount — see `core/intro.ts`.
+   * Only the stage preview asks for this; tiles and exports stay at rest.
+   */
+  intro?: boolean
 }
 
 /**
@@ -118,13 +123,20 @@ export interface BlobPreviewProps {
  * back to the parent — what you see and what you download share a source, not a
  * DOM element.
  */
-export function BlobPreview({ config, size = 400, className, idle = true }: BlobPreviewProps) {
+export function BlobPreview({
+  config,
+  size = 400,
+  className,
+  idle = true,
+  intro = false,
+}: BlobPreviewProps) {
   const values = useFaceMotion(config.mood)
   const shape = useShapeMorph(config.shape)
   const { blink, gazeX, gazeY, bodyRef } = useIdleMotion({
     moodId: config.mood,
     kick: shape.kick,
     enabled: idle,
+    intro,
   })
 
   const bodyColor = useAnimatedColor(config.color)

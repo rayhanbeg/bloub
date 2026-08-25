@@ -9,16 +9,19 @@
  * the top of the screen instead of scrolling.
  */
 
+import { motion } from 'framer-motion'
 import { ColourPicker } from './ColourPicker'
 import { MoodPicker } from './MoodPicker'
 import { ShapePicker } from './ShapePicker'
 import { PresetPicker } from './PresetPicker'
 import { SettingsPanel } from './SettingsPanel'
 import { Sidebar } from './Sidebar'
+import { SECTION_SEQUENCE, useIntro } from '../animation/useIntro'
 import { useBlob } from '../state/BlobProvider'
 
 export function ControlPanel() {
   const { tab } = useBlob()
+  const { active } = useIntro()
 
   return (
     <aside className="scroll-slim flex min-h-0 w-full flex-1 flex-col overflow-y-auto border-t border-zinc-200/80 bg-white lg:h-full lg:w-[312px] lg:flex-none lg:border-l lg:border-t-0 lg:pt-6">
@@ -28,15 +31,34 @@ export function ControlPanel() {
         <Sidebar variant="bar" />
       </div>
 
-      {tab === 'style' && (
-        <>
-          <ShapePicker />
-          <MoodPicker />
-          <ColourPicker />
-        </>
-      )}
-      {tab === 'presets' && <PresetPicker />}
-      {tab === 'settings' && <SettingsPanel />}
+      {/*
+        Orchestrates the sections' staggered entrance and nothing else: the
+        variants it names carry no styles of its own, and `display: contents`
+        keeps it out of the layout entirely, so the sections remain direct
+        children of the scrolling column.
+
+        `initial` is read from the live intro clock rather than from a flag that
+        was true at mount. Switching tabs remounts these sections, and Framer
+        Motion reads `initial` at each mount — so once the intro is over this is
+        `false` and a tab switch shows its controls immediately, instead of
+        replaying a half-second stagger every time.
+      */}
+      <motion.div
+        variants={SECTION_SEQUENCE}
+        initial={active ? 'hidden' : false}
+        animate="shown"
+        className="contents"
+      >
+        {tab === 'style' && (
+          <>
+            <ShapePicker />
+            <MoodPicker />
+            <ColourPicker />
+          </>
+        )}
+        {tab === 'presets' && <PresetPicker />}
+        {tab === 'settings' && <SettingsPanel />}
+      </motion.div>
 
       {/* Breathing room past the last section on touch, plus the iOS home-bar
           inset so the final row of swatches is never under it. */}

@@ -18,6 +18,7 @@ import type { ComponentType } from 'react'
 import { GiftIcon, PaletteIcon, SlidersIcon } from './Icons'
 import { useBlob } from '../state/BlobProvider'
 import type { Tab } from '../state/BlobProvider'
+import { CHROME_SPRING, INTRO_DELAY, rise, useIntro } from '../animation/useIntro'
 import { cn } from '../utils/cn'
 
 /**
@@ -46,18 +47,44 @@ export interface SidebarProps {
 
 export function Sidebar({ variant = 'rail' }: SidebarProps) {
   const { tab, setTab } = useBlob()
+  const { play } = useIntro()
   const bar = variant === 'bar'
 
+  // Both forms join the intro; they differ only in which direction they arrive
+  // from. The bar drops in from the top of the sheet it's pinned to; the rail
+  // slides in from the edge it floats against.
+  const entrance = bar
+    ? rise(play, INTRO_DELAY.nav, -8)
+    : {
+        initial: play ? { opacity: 0, x: -10 } : false,
+        animate: { opacity: 1, x: 0 },
+        transition: {
+          ...CHROME_SPRING,
+          delay: INTRO_DELAY.nav,
+          opacity: { duration: 0.42, delay: INTRO_DELAY.nav },
+        },
+      }
+
   return (
-    <nav
+    <motion.nav
       aria-label="Sections"
+      {...entrance}
+      /*
+       * The rail's vertical centring is a transform, and Framer Motion composes
+       * the entire `transform` property itself from its own props — so a Tailwind
+       * `-translate-y-1/2` here would simply be overwritten the moment `x`
+       * animates, dropping the rail half its height down the stage. Handing the
+       * offset to Framer as `translateY` instead puts it in the same transform
+       * string as the `x` it's animating, where the two compose.
+       */
+      style={bar ? undefined : { translateY: '-50%' }}
       className={cn(
         bar
           ? // A segmented row inside the control sheet. Full-width on a phone,
             // but capped so it doesn't stretch into a banner on a tablet.
             'mx-auto flex w-full max-w-[420px] items-center gap-1 rounded-xl bg-zinc-100/80 p-1 lg:hidden'
           : // The floating card, vertically centred on the stage.
-            'absolute left-5 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-center gap-1 rounded-2xl bg-white p-1.5 shadow-[0_1px_2px_rgba(9,9,11,0.05),0_8px_24px_-8px_rgba(9,9,11,0.10)] ring-1 ring-zinc-950/[0.04] lg:flex',
+            'absolute left-5 top-1/2 z-10 hidden flex-col items-center gap-1 rounded-2xl bg-white p-1.5 shadow-[0_1px_2px_rgba(9,9,11,0.05),0_8px_24px_-8px_rgba(9,9,11,0.10)] ring-1 ring-zinc-950/[0.04] lg:flex',
       )}
     >
       {TABS.map(({ id, label, Icon }) => {
@@ -117,6 +144,6 @@ export function Sidebar({ variant = 'rail' }: SidebarProps) {
           </button>
         )
       })}
-    </nav>
+    </motion.nav>
   )
 }

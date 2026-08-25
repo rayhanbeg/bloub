@@ -1,0 +1,376 @@
+<!doctype html>
+<!--
+  Intro verification harness.
+
+  Three things have to be true, and none of them can be confirmed by looking at a
+  screenshot — a still frame of an animation tells you nothing about its shape:
+
+  1. `introAt()` describes the sequence that was designed: eyes shut → open →
+     glance left → glance right → back to centre → one deliberate blink → hand
+     over. Checked as pure maths, including the velocity at the seams.
+  2. The blob actually performs it. Two live previews are mounted, one with
+     `intro` and one without, and each eye's bounding box is sampled every frame.
+     The control group is the part that matters most: it proves the intro is
+     genuinely opt-in, so the forty tile thumbnails and every export are
+     untouched.
+  3. The chrome arrives in the intended order and only once. The real app is
+     loaded in an iframe, every element's computed opacity is sampled until it
+     settles, and then a tab is switched to confirm the stagger does not replay.
+
+  Served by Vite in dev only; `dev/` is outside `public/` so it never ships.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; padding: 20px; font: 13px/1.5 ui-monospace, monospace; background: #fff; color: #111 }
+      h1 { font-size: 15px; margin: 0 0 14px }
+      h2 { font-size: 12px; margin: 22px 0 8px; color: #666; text-transform: uppercase; letter-spacing: .06em }
+      table { border-collapse: collapse; width: 100%; max-width: 1080px }
+      td, th { text-align: left; padding: 4px 10px; border-bottom: 1px solid #eee; vertical-align: top }
+      .pass { color: #087443; font-weight: 700 }
+      .fail { color: #c62a2f; font-weight: 700 }
+      #stage { position: fixed; left: -9999px; top: 0; display: flex }
+      #app { width: 1180px; height: 800px; border: 1px solid #eee; margin-top: 10px }
+      canvas { border: 1px solid #eee; margin-top: 10px }
+    </style>
+  </head>
+  <body>
+    <h1 id="head">running…</h1>
+    <table><tbody id="rows"></tbody></table>
+    <h2>gaze (blue) and eye height (red) over the intro</h2>
+    <canvas id="plot" width="1000" height="200"></canvas>
+    <div id="stage"></div>
+    <h2>the real app, mid-intro</h2>
+    <iframe id="app" src="/"></iframe>
+
+    <script type="module">
+      import { createElement } from 'react'
+      import { createRoot } from 'react-dom/client'
+      import { BlobPreview } from '/src/components/BlobPreview.tsx'
+      import { INTRO_DURATION, introAt } from '/src/core/intro.ts'
+      import { INTRO_DELAY } from '/src/animation/useIntro.ts'
+
+      const rows = document.getElementById('rows')
+      let failures = 0
+
+      function report(name, ok, detail) {
+        if (!ok) failures++
+        const tr = document.createElement('tr')
+        tr.innerHTML =
+          `<td style="width:250px">${name}</td>` +
+          `<td class="${ok ? 'pass' : 'fail'}" style="width:52px">${ok ? 'PASS' : 'FAIL'}</td>` +
+          `<td>${detail}</td>`
+        rows.appendChild(tr)
+      }
+
+      const frame = () => new Promise((r) => requestAnimationFrame(r))
+      const num = (v) => (Math.round(v * 1000) / 1000).toFixed(3)
+
+      /* ================= 1. the script, as pure maths ===================== */
+
+      // Dense sample of the whole timeline plus an overrun, so "what happens
+      // after it ends" is covered too.
+      const script = []
+      for (let t = 0; t <= INTRO_DURATION + 0.5; t += 0.005) script.push({ t, ...introAt(t) })
+
+      const at = (t) => introAt(t)
+      const gazes = script.map((s) => s.gazeX)
+      const minGaze = Math.min(...gazes)
+      const maxGaze = Math.max(...gazes)
+      const minAt = script[gazes.indexOf(minGaze)].t
+      const maxAt = script[gazes.indexOf(maxGaze)].t
+
+      report(
+        'script · arrives squinting, then opens',
+        at(0).blink < 0.2 && at(0.5).blink > 0.98,
+        `blink(0)=${num(at(0).blink)} → blink(0.5)=${num(at(0.5).blink)}`,
+      )
+
+      report(
+        'script · glances left, then right',
+        minGaze < -2.7 && maxGaze > 2.7 && minAt < maxAt,
+        `left ${num(minGaze)} at ${num(minAt)}s → right ${num(maxGaze)} at ${num(maxAt)}s`,
+      )
+
+      // The glance has to start and stop without a twitch, which means both the
+      // position *and* the velocity have to be zero at each end — the whole
+      // reason for the sin(πu) envelope. Differentiate numerically to check.
+      const speedAt = (t) => Math.abs((introAt(t + 0.004).gazeX - introAt(t - 0.004).gazeX) / 0.008)
+      const peakSpeed = Math.max(...script.slice(1, -1).map((s) => speedAt(s.t)))
+      const edgeSpeed = Math.max(speedAt(0.45), speedAt(1.05))
+      report(
+        'script · glance eases in and out',
+        edgeSpeed < peakSpeed * 0.05,
+        `speed at the seams ${num(edgeSpeed)} units/s vs ${num(peakSpeed)} at its fastest ` +
+          `(${((edgeSpeed / peakSpeed) * 100).toFixed(1)}%)`,
+      )
+
+      // Exactly one deliberate blink after the eyes have opened: count the runs
+      // where the lid drops below three-quarters open.
+      const late = script.filter((s) => s.t > 0.5)
+      let dips = 0
+      let deepest = 1
+      for (let i = 1; i < late.length; i++) {
+        if (late[i].blink < 0.75 && late[i - 1].blink >= 0.75) dips++
+        deepest = Math.min(deepest, late[i].blink)
+      }
+      report(
+        'script · exactly one deliberate blink',
+        dips === 1 && deepest < 0.1,
+        `${dips} dip(s) after opening, closing to ${num(deepest)} (0 = shut)`,
+      )
+
+      report(
+        'script · hands the gaze back cleanly',
+        at(1.1).idleMix === 0 &&
+          at(INTRO_DURATION).idleMix === 1 &&
+          Math.abs(at(INTRO_DURATION).gazeX) < 1e-9 &&
+          at(INTRO_DURATION + 0.4).blink === 1,
+        `idleMix ${num(at(1.1).idleMix)} → ${num(at(INTRO_DURATION).idleMix)}, ` +
+          `own gaze back to ${num(at(INTRO_DURATION).gazeX)}, and an overrun is at rest ` +
+          `(blink=${num(at(INTRO_DURATION + 0.4).blink)})`,
+      )
+
+      /* ================= 2. the blob actually performs it ================= */
+
+      // Two previews side by side, identical except for the one prop. The
+      // control group is what proves the tiles and exporters are untouched.
+      const stage = document.getElementById('stage')
+      const config = { shape: 'pebble', mood: 'neutral', color: '#111113' }
+      const mounts = ['intro', 'control'].map((id) => {
+        const host = document.createElement('div')
+        host.id = `blob-${id}`
+        stage.appendChild(host)
+        return { id, root: createRoot(host), host }
+      })
+
+      // Mount both in the same tick so they share a t=0.
+      for (const m of mounts) {
+        m.root.render(
+          createElement(BlobPreview, { config, size: 240, intro: m.id === 'intro' }),
+        )
+      }
+
+      /** Eye centre and height, in viewBox units. `getBBox` ignores ancestor
+       *  transforms, so breathing and the face-fit can't pollute the reading —
+       *  what comes back is the baked path, i.e. gaze and lid only. */
+      const readEye = (host) => {
+        const eye = host.querySelectorAll('svg g g path')[0]
+        if (!eye) return null
+        const b = eye.getBBox()
+        return { x: b.x + b.width / 2, h: b.height }
+      }
+
+      const samples = { intro: [], control: [] }
+      const started = performance.now()
+      while (performance.now() - started < (INTRO_DURATION + 0.35) * 1000) {
+        await frame()
+        const t = (performance.now() - started) / 1000
+        for (const m of mounts) {
+          const eye = readEye(m.host)
+          if (eye) samples[m.id].push({ t, ...eye })
+        }
+      }
+
+      const rest = (list) => list[list.length - 1]
+      const window_ = (list, from, to) => list.filter((s) => s.t >= from && s.t <= to)
+
+      const live = samples.intro
+      const liveRest = rest(live)
+      const sweep = live.map((s) => s.x - liveRest.x)
+      const leftMost = Math.min(...sweep)
+      const rightMost = Math.max(...sweep)
+      const leftAt = live[sweep.indexOf(leftMost)].t
+      const rightAt = live[sweep.indexOf(rightMost)].t
+
+      report(
+        'live · the eyes really sweep',
+        leftMost < -2.4 && rightMost > 2.4 && leftAt < rightAt,
+        `${live.length} frames sampled · left ${num(leftMost)} at ${num(leftAt)}s → ` +
+          `right ${num(rightMost)} at ${num(rightAt)}s (rest x=${num(liveRest.x)})`,
+      )
+
+      const arrival = live[0]
+      const blinkWindow = window_(live, 1.05, 1.4)
+      const deepestLive = Math.min(...blinkWindow.map((s) => s.h))
+      report(
+        'live · opens, then blinks once',
+        arrival.h < liveRest.h * 0.7 &&
+          deepestLive < liveRest.h * 0.6 &&
+          window_(live, 0.5, 1.0).every((s) => s.h > liveRest.h * 0.95),
+        `arrives at ${num(arrival.h)} of ${num(liveRest.h)} units tall, fully open through ` +
+          `0.5–1.0s, then closes to ${num(deepestLive)} around 1.2s`,
+      )
+
+      report(
+        'live · settles back to rest',
+        Math.abs(liveRest.x - live.find((s) => s.t > 0.05).x) < 0.05 &&
+          Math.abs(liveRest.h - Math.max(...live.map((s) => s.h))) < 0.05,
+        `final gaze offset ${num(liveRest.x - live.find((s) => s.t > 0.05).x)} units, ` +
+          `final height ${num(liveRest.h)} = its maximum`,
+      )
+
+      // The control group: same component, same mood, no `intro`. Sampled only up
+      // to 1.5s because a neutral blob's first randomised idle blink is due at
+      // ~1.68s and would be a real blink, not a regression.
+      const ctrl = window_(samples.control, 0, 1.5)
+      const ctrlX = ctrl.map((s) => s.x)
+      const ctrlH = ctrl.map((s) => s.h)
+      report(
+        'live · without `intro`, nothing happens',
+        Math.max(...ctrlX) - Math.min(...ctrlX) < 0.05 &&
+          Math.min(...ctrlH) > Math.max(...ctrlH) * 0.98,
+        `gaze varied by ${num(Math.max(...ctrlX) - Math.min(...ctrlX))} units and height by ` +
+          `${num(Math.max(...ctrlH) - Math.min(...ctrlH))} across ${ctrl.length} frames — ` +
+          `so tiles and exports are unaffected`,
+      )
+
+      report(
+        'live · the whole thing is over in time',
+        live.filter((s) => s.t < 2).length > 0 && INTRO_DURATION <= 2,
+        `scripted face motion ends at ${INTRO_DURATION}s; last chrome starts at ` +
+          `${INTRO_DELAY.exportBar}s — inside the 1–2s budget`,
+      )
+
+      /* ---- plot it, so the shape is inspectable by eye too ---------------- */
+      const ctx = document.getElementById('plot').getContext('2d')
+      ctx.strokeStyle = '#e4e4e7'
+      ctx.beginPath()
+      ctx.moveTo(0, 100)
+      ctx.lineTo(1000, 100)
+      ctx.stroke()
+      for (const [key, colour, scale, offset] of [
+        ['x', '#2563eb', 20, 100],
+        ['h', '#dc2626', 4, 200],
+      ]) {
+        ctx.strokeStyle = colour
+        ctx.beginPath()
+        live.forEach((s, i) => {
+          const px = (s.t / (INTRO_DURATION + 0.35)) * 1000
+          const py = offset - (key === 'x' ? (s.x - liveRest.x) * scale : s.h * scale)
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+        })
+        ctx.stroke()
+      }
+
+      for (const m of mounts) m.root.unmount()
+
+      /* ================= 3. the chrome, in the real app =================== */
+
+      const iframe = document.getElementById('app')
+      const doc = iframe.contentDocument
+      const win = iframe.contentWindow
+      // The iframe's own clock: its origin is its navigation start, which is a
+      // couple of milliseconds before the app module — and therefore before
+      // `useIntro`'s `LOADED_AT` — is evaluated.
+      const appNow = () => win.performance.now() / 1000
+
+      const wordmark = [...doc.querySelectorAll('span')].find((s) => s.textContent.trim() === 'Bloub')
+      const rail = [...doc.querySelectorAll('nav[aria-label="Sections"]')].find(
+        (n) => win.getComputedStyle(n).display !== 'none',
+      )
+      const blob = doc.querySelector('svg[role="img"]').parentElement
+      const exportBar = [...doc.querySelectorAll('main > div')].find((d) =>
+        d.textContent.includes('Export as'),
+      )
+      const sections = [...doc.querySelectorAll('section')]
+
+      const tracked = [
+        ['blob', blob],
+        ['wordmark', wordmark],
+        ['rail', rail],
+        ...sections.map((el, i) => [`section ${i + 1} (${el.querySelector('h2')?.textContent})`, el]),
+        ['export bar', exportBar],
+      ]
+
+      const missing = tracked.filter(([, el]) => !el).map(([name]) => name)
+      report(
+        'app · every animated element was found',
+        missing.length === 0 && sections.length === 3,
+        missing.length
+          ? `could not find: ${missing.join(', ')}`
+          : `${tracked.length} elements: ${tracked.map(([n]) => n).join(', ')}`,
+      )
+
+      // Watch until everything is opaque, recording when each element first
+      // crossed half opacity. That crossing time is the arrival order.
+      const arrivedAt = new Map()
+      const startedWatching = appNow()
+      let firstSeen = null
+      while (appNow() - startedWatching < 4) {
+        await frame()
+        const t = appNow()
+        for (const [name, el] of tracked) {
+          if (!el || arrivedAt.has(name)) continue
+          const opacity = Number(win.getComputedStyle(el).opacity)
+          if (firstSeen === null) firstSeen = opacity
+          if (opacity >= 0.5) arrivedAt.set(name, t)
+        }
+        if (arrivedAt.size === tracked.length) break
+      }
+
+      const order = [...arrivedAt.entries()].sort((a, b) => a[1] - b[1])
+      const timeline = order.map(([n, t]) => `${n} ${num(t)}s`).join(' → ')
+
+      report(
+        'app · everything faded in',
+        arrivedAt.size === tracked.length,
+        arrivedAt.size === tracked.length
+          ? `all ${tracked.length} reached full opacity`
+          : `still transparent after 4s: ${tracked
+              .filter(([n]) => !arrivedAt.has(n))
+              .map(([n]) => n)
+              .join(', ')}`,
+      )
+
+      const first = order[0]?.[0]
+      const last = order[order.length - 1]?.[0]
+      const blobT = arrivedAt.get('blob')
+      const barT = arrivedAt.get('export bar')
+      report(
+        'app · staggered, blob first',
+        first === 'blob' && barT > blobT + 0.2 && new Set(order.map(([, t]) => num(t))).size > 3,
+        `${timeline} — blob leads by ${num(barT - blobT)}s`,
+      )
+
+      report(
+        'app · sections arrive in order, not together',
+        arrivedAt.get(tracked[3][0]) <= arrivedAt.get(tracked[4][0]) &&
+          arrivedAt.get(tracked[4][0]) <= arrivedAt.get(tracked[5][0]) &&
+          arrivedAt.get(tracked[5][0]) - arrivedAt.get(tracked[3][0]) > 0.05,
+        `shape → mood → colour spread over ` +
+          `${num(arrivedAt.get(tracked[5][0]) - arrivedAt.get(tracked[3][0]))}s`,
+      )
+
+      report(
+        'app · finished inside 2s',
+        Math.max(...arrivedAt.values()) < 2,
+        `last arrival at ${num(Math.max(...arrivedAt.values()))}s (${last})`,
+      )
+
+      // Once it's over, a tab switch must not replay it — the sections are
+      // remounted, so this is the case a naive `useState` flag gets wrong.
+      const settingsTab = [...doc.querySelectorAll('nav[aria-label="Sections"] button')].find(
+        (b) => b.getAttribute('aria-label') === 'Settings',
+      )
+      settingsTab.click()
+      await frame()
+      await frame()
+      const swapped = doc.querySelector('section')
+      const swappedOpacity = Number(win.getComputedStyle(swapped).opacity)
+      const swappedOffset = win.getComputedStyle(swapped).transform
+      report(
+        'app · does not replay on a tab switch',
+        swappedOpacity === 1 && (swappedOffset === 'none' || swappedOffset === 'matrix(1, 0, 0, 1, 0, 0)'),
+        `after switching to “${swapped.querySelector('h2')?.textContent}” two frames later: ` +
+          `opacity=${swappedOpacity} transform=${swappedOffset}`,
+      )
+
+      const head = document.getElementById('head')
+      head.textContent = failures === 0 ? 'INTRO BEHAVES' : `${failures} CHECK(S) FAILED`
+      head.className = failures === 0 ? 'pass' : 'fail'
+      document.title = failures === 0 ? 'PASS' : 'FAIL'
+    </script>
+  </body>
+</html>

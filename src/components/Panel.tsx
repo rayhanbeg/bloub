@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
+import { SECTION_RISE } from '../animation/useIntro'
 import { cn } from '../utils/cn'
 
 export function Section({
@@ -17,13 +18,17 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    <section className="px-5 pb-6 sm:px-6 sm:pb-7">
+    // `variants` with no `initial`/`animate` of its own: the section takes both
+    // from whichever ancestor is orchestrating (ControlPanel, during the intro),
+    // and sits still when nothing is. That's what lets one component be the
+    // staggered child of a sequence it knows nothing about.
+    <motion.section variants={SECTION_RISE} className="px-5 pb-6 sm:px-6 sm:pb-7">
       <div className="mb-3 flex h-5 items-center justify-between">
         <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-zinc-900">{title}</h2>
         {action}
       </div>
       {children}
-    </section>
+    </motion.section>
   )
 }
 

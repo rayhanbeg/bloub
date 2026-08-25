@@ -14,6 +14,9 @@
  * - **Motion parameters are eased, not switched.** Moving from Sleepy's 7.5s
  *   breath to Excited's 1.7s instantly would be a visible lurch, so every
  *   parameter is exponentially smoothed toward its target.
+ *
+ * The same loop plays the one-time intro (`core/intro.ts`) over the eyes when
+ * asked, since it's already the thing holding a clock.
  */
 
 import { useEffect, useMemo, useRef } from 'react'
@@ -21,6 +24,7 @@ import { useAnimationFrame, useMotionValue } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import { blinkAmount, DEFAULT_MOTION, idleAt, idleTransform } from '../core/idle'
 import type { MoodMotion } from '../core/idle'
+import { INTRO_DURATION, introAt } from '../core/intro'
 import { moodMotion } from '../moods'
 
 /** How fast motion parameters chase a new mood's values, in e-folds/second. */
@@ -42,9 +46,21 @@ export interface UseIdleOptions {
   /** Extra squash impulse, 0–1, from a shape change. */
   kick?: MotionValue<number>
   enabled?: boolean
+  /**
+   * Play the one-time "coming to life" script over the eyes on mount.
+   *
+   * Off by default, because the picker grids mount a preview per tile and forty
+   * blobs all glancing about at once would be a stampede, not a welcome.
+   */
+  intro?: boolean
 }
 
-export function useIdleMotion({ moodId, kick, enabled = true }: UseIdleOptions): IdleMotion {
+export function useIdleMotion({
+  moodId,
+  kick,
+  enabled = true,
+  intro = false,
+}: UseIdleOptions): IdleMotion {
   const bodyRef = useRef<SVGGElement>(null)
   const blink = useMotionValue(1)
   const gazeX = useMotionValue(0)
@@ -97,6 +113,22 @@ export function useIdleMotion({ moodId, kick, enabled = true }: UseIdleOptions):
     }
 
     bodyRef.current?.setAttribute('transform', idleTransform(state))
+
+    // For its first moment on screen the intro owns the eyes: it opens them,
+    // walks them left and right, and blinks once. Breathing keeps running
+    // underneath — only the gaze and the lids are borrowed, and only until
+    // `idleMix` has faded the loop's own gaze back in.
+    if (intro && elapsed.current < INTRO_DURATION) {
+      const scripted = introAt(elapsed.current)
+      gazeX.set(scripted.gazeX + state.gazeX * scripted.idleMix)
+      gazeY.set(scripted.gazeY + state.gazeY * scripted.idleMix)
+      blink.set(scripted.blink)
+      // Hold the random schedule off until the intro is done, so its deliberate
+      // blink isn't stepped on by an idle one landing at the same moment.
+      nextBlink.current = Math.max(nextBlink.current, INTRO_DURATION + 0.6)
+      return
+    }
+
     gazeX.set(state.gazeX)
     gazeY.set(state.gazeY)
 
