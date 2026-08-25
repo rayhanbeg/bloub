@@ -24,7 +24,7 @@ import { useAnimationFrame, useMotionValue } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import { blinkAmount, DEFAULT_MOTION, idleAt, idleTransform } from '../core/idle'
 import type { MoodMotion } from '../core/idle'
-import { INTRO_DURATION, introAt } from '../core/intro'
+import { INTRO_DURATION, INTRO_FACE_DELAY, introAt } from '../core/intro'
 import { moodMotion } from '../moods'
 
 /** How fast motion parameters chase a new mood's values, in e-folds/second. */
@@ -114,18 +114,19 @@ export function useIdleMotion({
 
     bodyRef.current?.setAttribute('transform', idleTransform(state))
 
-    // For its first moment on screen the intro owns the eyes: it opens them,
-    // walks them left and right, and blinks once. Breathing keeps running
-    // underneath — only the gaze and the lids are borrowed, and only until
-    // `idleMix` has faded the loop's own gaze back in.
-    if (intro && elapsed.current < INTRO_DURATION) {
-      const scripted = introAt(elapsed.current)
+    // For its first couple of seconds on screen the intro owns the eyes: it holds
+    // them in a squint through the camera's close-up, opens them as the blob
+    // comes into focus, walks them left and right, and blinks once. Breathing
+    // keeps running underneath — only the gaze and the lids are borrowed, and
+    // only until `idleMix` has faded the loop's own gaze back in.
+    if (intro && elapsed.current < INTRO_FACE_DELAY + INTRO_DURATION) {
+      const scripted = introAt(elapsed.current - INTRO_FACE_DELAY)
       gazeX.set(scripted.gazeX + state.gazeX * scripted.idleMix)
       gazeY.set(scripted.gazeY + state.gazeY * scripted.idleMix)
       blink.set(scripted.blink)
       // Hold the random schedule off until the intro is done, so its deliberate
       // blink isn't stepped on by an idle one landing at the same moment.
-      nextBlink.current = Math.max(nextBlink.current, INTRO_DURATION + 0.6)
+      nextBlink.current = Math.max(nextBlink.current, INTRO_FACE_DELAY + INTRO_DURATION + 0.6)
       return
     }
 

@@ -1,13 +1,15 @@
 /**
- * The intro — the blob's first second and a half, once per page load.
+ * The intro — the blob's first couple of seconds, once per page load.
  *
- * The division of labour is deliberate. The *entrance* (fade and scale-up) is
- * Framer Motion's job, because a spring's overshoot is exactly what makes a
- * pop-in feel soft rather than mechanical, and a spring is defined by where it's
- * going, not by a schedule. What follows is the opposite kind of animation: a
- * short scripted performance — the eyes open from a squint, glance left, glance
- * right, and give one deliberate blink — which is a *timeline*, so it's written
- * as one here.
+ * The intro is a camera move followed by a performance, and the two halves are
+ * built out of deliberately different machinery.
+ *
+ * The camera pull-back (`animation/useCameraReveal.ts`) is a *transition*: it has
+ * a start, an end, and an easing curve, which is exactly what Framer Motion is
+ * for. What follows is the opposite kind of animation — a short scripted moment
+ * where the eyes open from a squint, glance left, glance right, and give one
+ * deliberate blink. That's a *timeline*, not a target to settle on, so it's
+ * written as one here.
  *
  * Same two rules as `idle.ts`: pure functions, no React, no clock of its own.
  * `useIdleMotion` already counts elapsed seconds, so it just asks this module
@@ -16,25 +18,37 @@
  * Nothing here reaches the exporters. An exported loop *is* the idle animation;
  * a one-off intro at the top of a GIF would be a seam, not a feature.
  *
- *   0.00 ─ 0.14   arrives with its eyes almost shut
- *   0.14 ─ 0.36   eyes open
- *   0.44 ─ 1.06   one continuous glance: left, then right, back to centre
- *   1.12 ─ 1.30   one deliberate blink
- *   1.22 ─ 1.50   gaze control fades back to the idle loop
+ * Times below are relative to the script's own start, which the caller offsets by
+ * `INTRO_FACE_DELAY` so it lands under the tail of the camera move:
+ *
+ *   ·    ─ 0.00   held in a squint for the whole close-up
+ *   0.00 ─ 0.22   eyes open as the blob comes into focus
+ *   0.30 ─ 0.92   one continuous glance: left, then right, back to centre
+ *   0.98 ─ 1.16   one deliberate blink
+ *   1.08 ─ 1.36   gaze control fades back to the idle loop
  */
 
 const TAU = Math.PI * 2
 
 /** Total length of the scripted part, in seconds. */
-export const INTRO_DURATION = 1.5
+export const INTRO_DURATION = 1.36
 
-const OPEN_FROM = 0.14
-const OPEN_TO = 0.36
-const GLANCE_FROM = 0.44
-const GLANCE_TO = 1.06
-const BLINK_FROM = 1.12
-const BLINK_TO = 1.3
-const HANDOVER_FROM = 1.22
+/**
+ * How long after mount the face script starts.
+ *
+ * Deliberately a little *before* the camera finishes: the eyes come open while
+ * the blob is still coming into focus, which reads as the reveal and the waking
+ * up being one gesture rather than two animations queued back to back.
+ */
+export const INTRO_FACE_DELAY = 0.72
+
+const OPEN_FROM = 0
+const OPEN_TO = 0.22
+const GLANCE_FROM = 0.3
+const GLANCE_TO = 0.92
+const BLINK_FROM = 0.98
+const BLINK_TO = 1.16
+const HANDOVER_FROM = 1.08
 
 /** How wide the glance reaches, in viewBox units — a mood's `gazeX` is 1.6–3. */
 const GAZE_REACH = 2.8
@@ -72,8 +86,10 @@ export interface IntroFace {
 /**
  * Evaluate the intro.
  *
- * @param t Seconds since the blob mounted. Past `INTRO_DURATION` this returns
- *   the resting face with `idleMix` at 1, so an overrun is harmless.
+ * @param t Seconds since the script started — i.e. already offset by
+ *   `INTRO_FACE_DELAY`. Negative values return the arrival state, so the blob
+ *   holds its squint through the close-up; past `INTRO_DURATION` it returns the
+ *   resting face with `idleMix` at 1, so an overrun is harmless too.
  */
 export function introAt(t: number): IntroFace {
   const glance = span(t, GLANCE_FROM, GLANCE_TO)
@@ -95,8 +111,12 @@ export function introAt(t: number): IntroFace {
   const lift = glance <= 0 || glance >= 1 ? 0 : -Math.sin(glance * Math.PI) * 0.5
 
   const opening = ARRIVAL_LID + (1 - ARRIVAL_LID) * smooth(span(t, OPEN_FROM, OPEN_TO))
-  // A half-sine, so it's zero outside its own window and needs no branch.
-  const deliberate = Math.sin(span(t, BLINK_FROM, BLINK_TO) * Math.PI) * BLINK_DEPTH
+  // A half-sine, guarded at both ends. `sin(π)` is 1.2e-16 rather than 0 in
+  // floating point, and without the guard that ghost of a blink would still be
+  // riding the eyes for every frame after the intro finished.
+  const blinking = span(t, BLINK_FROM, BLINK_TO)
+  const deliberate =
+    blinking <= 0 || blinking >= 1 ? 0 : Math.sin(blinking * Math.PI) * BLINK_DEPTH
 
   return {
     gazeX: sweep * GAZE_REACH,

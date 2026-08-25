@@ -5,7 +5,9 @@ import { ExportBar } from './components/ExportBar'
 import { Sidebar } from './components/Sidebar'
 import { ToastProvider } from './components/Toast'
 import { BlobProvider, useBlob } from './state/BlobProvider'
-import { ENTRANCE_SPRING, INTRO_DELAY, rise, useIntro } from './animation/useIntro'
+import { useCameraReveal } from './animation/useCameraReveal'
+import { INTRO_DELAY, rise, useIntro } from './animation/useIntro'
+import { cn } from './utils/cn'
 
 /**
  * The preview's box, as a single expression of width.
@@ -28,6 +30,7 @@ const CHARACTER_SCALE = 'origin-center scale-[0.85]'
 function Workspace() {
   const { config, settings } = useBlob()
   const { play } = useIntro()
+  const camera = useCameraReveal(play)
 
   return (
     // Mobile stacks: stage on top, controls underneath. From `lg:` up it's the
@@ -53,22 +56,21 @@ function Workspace() {
             with a zero basis in an auto-height column can collapse to nothing. */}
         <div className="relative flex items-center justify-center px-5 pb-2 pt-12 sm:px-8 sm:pt-14 lg:flex-1 lg:py-0">
           {/*
-            The entrance: up from slightly smaller, with a spring soft enough to
-            overshoot a hair before it settles. It's on this wrapper rather than
-            on the svg, which already carries `CHARACTER_SCALE` — two elements,
-            two transforms, nothing to conflict over.
+            The reveal: a close-up of the blob, held for a beat, then pulled back
+            into the stage as it comes into focus. `useCameraReveal` measures this
+            box and drives scale, offset and blur; all this element contributes is
+            somewhere to put them.
 
-            Opacity gets its own plain curve. On a spring it would overshoot past
-            fully-opaque, which clamps to a flat spot and reads as a flicker.
+            While the camera is moving the blob is several times the width of the
+            stage and has to paint over the panel and the rail to fill the screen,
+            which is what `z-50` is for. It's dropped again the moment the camera
+            stops — left on, it would sit above the export menu for the rest of
+            the session.
           */}
           <motion.div
-            initial={play ? { opacity: 0, scale: 0.84 } : false}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              ...ENTRANCE_SPRING,
-              opacity: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
-            }}
-            className={PREVIEW_BOX}
+            ref={camera.ref}
+            style={camera.style}
+            className={cn(PREVIEW_BOX, 'relative', !camera.revealed && 'z-50')}
           >
             <BlobPreview
               config={config}

@@ -2,20 +2,23 @@
 <!--
   Intro verification harness.
 
-  Three things have to be true, and none of them can be confirmed by looking at a
-  screenshot — a still frame of an animation tells you nothing about its shape:
+  The intro is a camera move followed by a performance, and none of it can be
+  confirmed from a screenshot — a still frame of an animation tells you nothing
+  about its shape. So each part is measured while it runs:
 
-  1. `introAt()` describes the sequence that was designed: eyes shut → open →
-     glance left → glance right → back to centre → one deliberate blink → hand
-     over. Checked as pure maths, including the velocity at the seams.
-  2. The blob actually performs it. Two live previews are mounted, one with
-     `intro` and one without, and each eye's bounding box is sampled every frame.
-     The control group is the part that matters most: it proves the intro is
-     genuinely opt-in, so the forty tile thumbnails and every export are
-     untouched.
-  3. The chrome arrives in the intended order and only once. The real app is
-     loaded in an iframe, every element's computed opacity is sampled until it
-     settles, and then a tab is switched to confirm the stagger does not replay.
+  1. `introAt()` describes the sequence that was designed: eyes held in a squint →
+     open → glance left → glance right → back to centre → one deliberate blink →
+     hand over. Checked as pure maths, including the velocity at the seams.
+  2. The blob really performs it. Two live previews are mounted, one with `intro`
+     and one without, and each eye's bounding box is sampled every frame. The
+     control group is the part that matters most: it proves the intro is genuinely
+     opt-in, so the forty tile thumbnails and every export are untouched.
+  3. The camera pulls back. The real app is loaded in an iframe and the blob's
+     on-screen rect, transform matrix and filter are sampled from first paint, so
+     the close-up's size and centring, the held beat, the monotonic pull-back, the
+     rack into focus and the exact landing are all checked against numbers.
+  4. The chrome waits for it, arrives in order, and does so only once — including
+     across a tab switch, which remounts the sections.
 
   Served by Vite in dev only; `dev/` is outside `public/` so it never ships.
 -->
@@ -26,29 +29,32 @@
       body { margin: 0; padding: 20px; font: 13px/1.5 ui-monospace, monospace; background: #fff; color: #111 }
       h1 { font-size: 15px; margin: 0 0 14px }
       h2 { font-size: 12px; margin: 22px 0 8px; color: #666; text-transform: uppercase; letter-spacing: .06em }
-      table { border-collapse: collapse; width: 100%; max-width: 1080px }
+      table { border-collapse: collapse; width: 100%; max-width: 1120px }
       td, th { text-align: left; padding: 4px 10px; border-bottom: 1px solid #eee; vertical-align: top }
       .pass { color: #087443; font-weight: 700 }
       .fail { color: #c62a2f; font-weight: 700 }
       #stage { position: fixed; left: -9999px; top: 0; display: flex }
-      #app { width: 1180px; height: 800px; border: 1px solid #eee; margin-top: 10px }
-      canvas { border: 1px solid #eee; margin-top: 10px }
+      #app { width: 1180px; height: 800px; border: 1px solid #eee; display: block }
+      canvas { border: 1px solid #eee }
     </style>
   </head>
   <body>
     <h1 id="head">running…</h1>
     <table><tbody id="rows"></tbody></table>
-    <h2>gaze (blue) and eye height (red) over the intro</h2>
-    <canvas id="plot" width="1000" height="200"></canvas>
+    <h2>face: gaze (blue) and eye height (red)</h2>
+    <canvas id="face" width="1000" height="180"></canvas>
+    <h2>camera: scale (green) and blur (orange)</h2>
+    <canvas id="cam" width="1000" height="180"></canvas>
     <div id="stage"></div>
-    <h2>the real app, mid-intro</h2>
-    <iframe id="app" src="/"></iframe>
+    <h2>the app, after the reveal</h2>
+    <div id="appHost"></div>
 
     <script type="module">
       import { createElement } from 'react'
       import { createRoot } from 'react-dom/client'
       import { BlobPreview } from '/src/components/BlobPreview.tsx'
-      import { INTRO_DURATION, introAt } from '/src/core/intro.ts'
+      import { INTRO_DURATION, INTRO_FACE_DELAY, introAt } from '/src/core/intro.ts'
+      import { REVEAL_SETTLES } from '/src/animation/useCameraReveal.ts'
       import { INTRO_DELAY } from '/src/animation/useIntro.ts'
 
       const rows = document.getElementById('rows')
@@ -66,15 +72,28 @@
 
       const frame = () => new Promise((r) => requestAnimationFrame(r))
       const num = (v) => (Math.round(v * 1000) / 1000).toFixed(3)
+      const plot = (id, series, span) => {
+        const ctx = document.getElementById(id).getContext('2d')
+        ctx.strokeStyle = '#e4e4e7'
+        ctx.strokeRect(0.5, 0.5, 999, 179)
+        for (const { of, colour, scale, base } of series) {
+          ctx.strokeStyle = colour
+          ctx.beginPath()
+          series.length && of.forEach(([t, v], i) => {
+            const px = (t / span) * 1000
+            const py = base - v * scale
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+          })
+          ctx.stroke()
+        }
+      }
 
       /* ================= 1. the script, as pure maths ===================== */
 
-      // Dense sample of the whole timeline plus an overrun, so "what happens
-      // after it ends" is covered too.
       const script = []
-      for (let t = 0; t <= INTRO_DURATION + 0.5; t += 0.005) script.push({ t, ...introAt(t) })
-
+      for (let t = -0.3; t <= INTRO_DURATION + 0.5; t += 0.005) script.push({ t, ...introAt(t) })
       const at = (t) => introAt(t)
+
       const gazes = script.map((s) => s.gazeX)
       const minGaze = Math.min(...gazes)
       const maxGaze = Math.max(...gazes)
@@ -82,9 +101,10 @@
       const maxAt = script[gazes.indexOf(maxGaze)].t
 
       report(
-        'script · arrives squinting, then opens',
-        at(0).blink < 0.2 && at(0.5).blink > 0.98,
-        `blink(0)=${num(at(0).blink)} → blink(0.5)=${num(at(0.5).blink)}`,
+        'script · holds a squint, then opens',
+        at(-0.5).blink < 0.2 && at(-0.05).blink < 0.2 && at(0.3).blink > 0.98,
+        `before the script starts blink=${num(at(-0.5).blink)} (held through the close-up) → ` +
+          `blink(0.3)=${num(at(0.3).blink)}`,
       )
 
       report(
@@ -95,20 +115,21 @@
 
       // The glance has to start and stop without a twitch, which means both the
       // position *and* the velocity have to be zero at each end — the whole
-      // reason for the sin(πu) envelope. Differentiate numerically to check.
+      // reason for the sin(πu) envelope. Differentiate numerically at the seams;
+      // the ramp away from them is quadratic, so it climbs fast once it starts.
       const speedAt = (t) => Math.abs((introAt(t + 0.004).gazeX - introAt(t - 0.004).gazeX) / 0.008)
-      const peakSpeed = Math.max(...script.slice(1, -1).map((s) => speedAt(s.t)))
-      const edgeSpeed = Math.max(speedAt(0.45), speedAt(1.05))
+      const peakSpeed = Math.max(...script.map((s) => speedAt(s.t)))
+      const edgeSpeed = Math.max(speedAt(0.3), speedAt(0.92))
       report(
         'script · glance eases in and out',
-        edgeSpeed < peakSpeed * 0.05,
+        edgeSpeed < peakSpeed * 0.02,
         `speed at the seams ${num(edgeSpeed)} units/s vs ${num(peakSpeed)} at its fastest ` +
           `(${((edgeSpeed / peakSpeed) * 100).toFixed(1)}%)`,
       )
 
       // Exactly one deliberate blink after the eyes have opened: count the runs
       // where the lid drops below three-quarters open.
-      const late = script.filter((s) => s.t > 0.5)
+      const late = script.filter((s) => s.t > 0.35)
       let dips = 0
       let deepest = 1
       for (let i = 1; i < late.length; i++) {
@@ -123,33 +144,26 @@
 
       report(
         'script · hands the gaze back cleanly',
-        at(1.1).idleMix === 0 &&
+        at(0.95).idleMix === 0 &&
           at(INTRO_DURATION).idleMix === 1 &&
           Math.abs(at(INTRO_DURATION).gazeX) < 1e-9 &&
           at(INTRO_DURATION + 0.4).blink === 1,
-        `idleMix ${num(at(1.1).idleMix)} → ${num(at(INTRO_DURATION).idleMix)}, ` +
-          `own gaze back to ${num(at(INTRO_DURATION).gazeX)}, and an overrun is at rest ` +
+        `idleMix ${num(at(0.95).idleMix)} → ${num(at(INTRO_DURATION).idleMix)}, own gaze back to ` +
+          `${num(at(INTRO_DURATION).gazeX)}, and an overrun is at rest ` +
           `(blink=${num(at(INTRO_DURATION + 0.4).blink)})`,
       )
 
       /* ================= 2. the blob actually performs it ================= */
 
-      // Two previews side by side, identical except for the one prop. The
-      // control group is what proves the tiles and exporters are untouched.
       const stage = document.getElementById('stage')
       const config = { shape: 'pebble', mood: 'neutral', color: '#111113' }
       const mounts = ['intro', 'control'].map((id) => {
         const host = document.createElement('div')
-        host.id = `blob-${id}`
         stage.appendChild(host)
         return { id, root: createRoot(host), host }
       })
-
-      // Mount both in the same tick so they share a t=0.
       for (const m of mounts) {
-        m.root.render(
-          createElement(BlobPreview, { config, size: 240, intro: m.id === 'intro' }),
-        )
+        m.root.render(createElement(BlobPreview, { config, size: 240, intro: m.id === 'intro' }))
       }
 
       /** Eye centre and height, in viewBox units. `getBBox` ignores ancestor
@@ -162,59 +176,84 @@
         return { x: b.x + b.width / 2, h: b.height }
       }
 
+      const FACE_END = INTRO_FACE_DELAY + INTRO_DURATION
       const samples = { intro: [], control: [] }
-      const started = performance.now()
-      while (performance.now() - started < (INTRO_DURATION + 0.35) * 1000) {
+      const faceStart = performance.now()
+      while (performance.now() - faceStart < (FACE_END + 0.6) * 1000) {
         await frame()
-        const t = (performance.now() - started) / 1000
+        const t = (performance.now() - faceStart) / 1000
         for (const m of mounts) {
           const eye = readEye(m.host)
           if (eye) samples[m.id].push({ t, ...eye })
         }
       }
 
-      const rest = (list) => list[list.length - 1]
-      const window_ = (list, from, to) => list.filter((s) => s.t >= from && s.t <= to)
-
+      const within = (list, from, to) => list.filter((s) => s.t >= from && s.t <= to)
       const live = samples.intro
-      const liveRest = rest(live)
+      const liveRest = live[live.length - 1]
       const sweep = live.map((s) => s.x - liveRest.x)
       const leftMost = Math.min(...sweep)
       const rightMost = Math.max(...sweep)
       const leftAt = live[sweep.indexOf(leftMost)].t
       const rightAt = live[sweep.indexOf(rightMost)].t
 
+      /*
+       * The live timeline is anchored to the glance, not to this script's clock.
+       *
+       * `elapsed` inside the animation loop starts at the component's *mount*, and
+       * a dev-mode mount lands a couple of hundred milliseconds after `render()`
+       * is called — so absolute windows measured from here would all sit early by
+       * however long Vite took. The glance's left extreme is an unmistakable
+       * landmark in both timelines, so lining the two up on it makes every
+       * assertion below relative to the script's own zero.
+       */
+      const mountLag = leftAt - (INTRO_FACE_DELAY + minAt)
+      const scriptT = (s) => s.t - mountLag - INTRO_FACE_DELAY
+      const inScript = (from, to) => live.filter((s) => scriptT(s) >= from && scriptT(s) <= to)
+
       report(
-        'live · the eyes really sweep',
-        leftMost < -2.4 && rightMost > 2.4 && leftAt < rightAt,
-        `${live.length} frames sampled · left ${num(leftMost)} at ${num(leftAt)}s → ` +
-          `right ${num(rightMost)} at ${num(rightAt)}s (rest x=${num(liveRest.x)})`,
+        'live · the eyes really sweep, after the camera',
+        leftMost < -2.4 && rightMost > 2.4 && leftAt < rightAt && leftAt > INTRO_FACE_DELAY,
+        `${live.length} frames · left ${num(leftMost)} at ${num(leftAt)}s → right ` +
+          `${num(rightMost)} at ${num(rightAt)}s — both after the ${INTRO_FACE_DELAY}s face ` +
+          `delay (mount lagged this probe's clock by ${num(mountLag)}s)`,
       )
 
-      const arrival = live[0]
-      const blinkWindow = window_(live, 1.05, 1.4)
+      /*
+       * A closed eye is still a lens, not a line: `blinkRy` floors the radius at
+       * 8.2 units against an open 13.2, so nothing in the system reads below 62%
+       * of full height. The arrival squint and the deliberate blink both bottom
+       * out there — what distinguishes them is that the eyes are *fully open*
+       * between the two, which is what the middle check pins down.
+       */
+      const maxH = Math.max(...live.map((s) => s.h))
+      const squint = inScript(-INTRO_FACE_DELAY, -0.05)
+      const glancing = inScript(0.35, 0.85)
+      const blinkWindow = inScript(0.99, 1.15)
       const deepestLive = Math.min(...blinkWindow.map((s) => s.h))
       report(
-        'live · opens, then blinks once',
-        arrival.h < liveRest.h * 0.7 &&
-          deepestLive < liveRest.h * 0.6 &&
-          window_(live, 0.5, 1.0).every((s) => s.h > liveRest.h * 0.95),
-        `arrives at ${num(arrival.h)} of ${num(liveRest.h)} units tall, fully open through ` +
-          `0.5–1.0s, then closes to ${num(deepestLive)} around 1.2s`,
+        'live · squints through the close-up, opens, blinks once',
+        squint.length > 10 &&
+          squint.every((s) => s.h < maxH * 0.7) &&
+          glancing.length > 10 &&
+          glancing.every((s) => s.h > maxH * 0.95) &&
+          deepestLive < maxH * 0.7,
+        `held at ${num(squint[0]?.h ?? -1)} of ${num(maxH)} units tall for ${squint.length} ` +
+          `frames of close-up, fully open across ${glancing.length} frames of glance, then ` +
+          `closes to ${num(deepestLive)}`,
       )
 
       report(
         'live · settles back to rest',
-        Math.abs(liveRest.x - live.find((s) => s.t > 0.05).x) < 0.05 &&
-          Math.abs(liveRest.h - Math.max(...live.map((s) => s.h))) < 0.05,
-        `final gaze offset ${num(liveRest.x - live.find((s) => s.t > 0.05).x)} units, ` +
-          `final height ${num(liveRest.h)} = its maximum`,
+        Math.abs(liveRest.x - live[0].x) < 0.05 && Math.abs(liveRest.h - maxH) < 0.05,
+        `final gaze offset ${num(liveRest.x - live[0].x)} units, final height ` +
+          `${num(liveRest.h)} = its maximum`,
       )
 
       // The control group: same component, same mood, no `intro`. Sampled only up
       // to 1.5s because a neutral blob's first randomised idle blink is due at
       // ~1.68s and would be a real blink, not a regression.
-      const ctrl = window_(samples.control, 0, 1.5)
+      const ctrl = within(samples.control, 0, 1.5)
       const ctrlX = ctrl.map((s) => s.x)
       const ctrlH = ctrl.map((s) => s.h)
       report(
@@ -226,58 +265,172 @@
           `so tiles and exports are unaffected`,
       )
 
-      report(
-        'live · the whole thing is over in time',
-        live.filter((s) => s.t < 2).length > 0 && INTRO_DURATION <= 2,
-        `scripted face motion ends at ${INTRO_DURATION}s; last chrome starts at ` +
-          `${INTRO_DELAY.exportBar}s — inside the 1–2s budget`,
+      plot(
+        'face',
+        [
+          { of: live.map((s) => [s.t, s.x - liveRest.x]), colour: '#2563eb', scale: 14, base: 90 },
+          { of: live.map((s) => [s.t, s.h]), colour: '#dc2626', scale: 4, base: 180 },
+        ],
+        FACE_END + 0.6,
       )
-
-      /* ---- plot it, so the shape is inspectable by eye too ---------------- */
-      const ctx = document.getElementById('plot').getContext('2d')
-      ctx.strokeStyle = '#e4e4e7'
-      ctx.beginPath()
-      ctx.moveTo(0, 100)
-      ctx.lineTo(1000, 100)
-      ctx.stroke()
-      for (const [key, colour, scale, offset] of [
-        ['x', '#2563eb', 20, 100],
-        ['h', '#dc2626', 4, 200],
-      ]) {
-        ctx.strokeStyle = colour
-        ctx.beginPath()
-        live.forEach((s, i) => {
-          const px = (s.t / (INTRO_DURATION + 0.35)) * 1000
-          const py = offset - (key === 'x' ? (s.x - liveRest.x) * scale : s.h * scale)
-          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
-        })
-        ctx.stroke()
-      }
-
       for (const m of mounts) m.root.unmount()
 
-      /* ================= 3. the chrome, in the real app =================== */
+      /* ================= 3. the camera, in the real app =================== */
 
-      const iframe = document.getElementById('app')
-      const doc = iframe.contentDocument
-      const win = iframe.contentWindow
-      // The iframe's own clock: its origin is its navigation start, which is a
-      // couple of milliseconds before the app module — and therefore before
-      // `useIntro`'s `LOADED_AT` — is evaluated.
-      const appNow = () => win.performance.now() / 1000
+      // The iframe is created here rather than in the markup so its intro starts
+      // now — sampling has to begin at its first paint, not after two seconds of
+      // face tests. Polling every frame for the blob keeps t=0 within one frame of
+      // the real mount, which is as close as an out-of-process observer can get.
+      const iframe = document.createElement('iframe')
+      iframe.id = 'app'
+      document.getElementById('appHost').appendChild(iframe)
+      iframe.src = '/'
+
+      const cam = []
+      let doc = null
+      let win = null
+      let blob = null
+      let t0 = 0
+      const deadline = performance.now() + 15000
+
+      /** scaleX out of a computed `matrix(a, b, c, d, e, f)`. */
+      const matrixOf = (el) => {
+        const t = win.getComputedStyle(el).transform
+        if (!t || t === 'none') return { scale: 1, tx: 0, ty: 0, raw: 'none' }
+        const [a, , , , e, f] = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number)
+        return { scale: a, tx: e, ty: f, raw: t }
+      }
+      const blurOf = (el) => {
+        const f = win.getComputedStyle(el).filter
+        if (!f || f === 'none') return { px: 0, raw: f }
+        const m = /blur\(([\d.]+)px\)/.exec(f)
+        return { px: m ? Number(m[1]) : 0, raw: f }
+      }
+
+      while (performance.now() < deadline) {
+        await frame()
+        if (!blob) {
+          doc = iframe.contentDocument
+          win = iframe.contentWindow
+          const svg = doc?.querySelector('svg[role="img"]')
+          if (!svg) continue
+          blob = svg.parentElement
+          t0 = performance.now()
+        }
+        const t = (performance.now() - t0) / 1000
+        const rect = blob.querySelector('svg').getBoundingClientRect()
+        cam.push({
+          t,
+          ...matrixOf(blob),
+          blur: blurOf(blob).px,
+          filterRaw: blurOf(blob).raw,
+          zIndex: win.getComputedStyle(blob).zIndex,
+          cx: rect.left + rect.width / 2,
+          cy: rect.top + rect.height / 2,
+          w: rect.width,
+          opacity: Number(win.getComputedStyle(blob).opacity),
+        })
+        if (t > REVEAL_SETTLES + 0.6) break
+      }
+
+      report(
+        'app · the reveal was observed from its first frame',
+        cam.length > 40 && cam[0].t < 0.05,
+        `${cam.length} frames sampled, first at t=${num(cam[0]?.t ?? -1)}s`,
+      )
+
+      // The blob's *body* is about 68% of its box (160 of 200 viewBox units, then
+      // CHARACTER_SCALE's 0.85), so that's what has to cover the screen.
+      const BODY = (160 / 200) * 0.85
+      const viewport = { w: win.innerWidth, h: win.innerHeight }
+      const shortSide = Math.min(viewport.w, viewport.h)
+      const open = cam[0]
+      const bodyAtOpen = open.w * BODY
+      const offCentre = Math.hypot(open.cx - viewport.w / 2, open.cy - viewport.h / 2)
+
+      report(
+        'camera · opens on a close-up, centred on the viewport',
+        bodyAtOpen >= shortSide && offCentre < 2 && open.scale > 2,
+        `body is ${Math.round(bodyAtOpen)}px across a ${viewport.w}×${viewport.h} frame ` +
+          `(${(bodyAtOpen / shortSide).toFixed(2)}× its short side) at scale ` +
+          `${num(open.scale)}, centre off by ${num(offCentre)}px`,
+      )
+
+      const maxScale = Math.max(...cam.map((s) => s.scale))
+      const beat = cam.filter((s) => s.scale > maxScale * 0.98)
+      const heldUntil = Math.max(...beat.map((s) => s.t))
+      const moving = cam.find((s) => s.scale < maxScale * 0.9)
+      report(
+        'camera · holds the beat before pulling back',
+        heldUntil > 0.25 && heldUntil < 0.55 && moving && moving.t < 0.6,
+        `held within 2% of full zoom until ${num(heldUntil)}s, past 10% of the travel by ` +
+          `${num(moving?.t ?? -1)}s`,
+      )
+
+      // A camera doesn't jitter or bounce: scale must fall, and only fall.
+      const rises = cam.filter((s, i) => i > 0 && s.scale > cam[i - 1].scale + 0.002)
+      const settled = cam[cam.length - 1]
+      report(
+        'camera · pulls back smoothly and lands exactly',
+        rises.length === 0 &&
+          Math.abs(settled.scale - 1) < 0.001 &&
+          Math.abs(settled.tx) < 0.5 &&
+          Math.abs(settled.ty) < 0.5,
+        `${cam.length} frames, ${rises.length} of them non-monotonic — scale ` +
+          `${num(maxScale)} → ${num(settled.scale)}, offset (${num(settled.tx)}, ` +
+          `${num(settled.ty)})px, transform now “${settled.raw}”`,
+      )
+
+      const blurs = cam.map((s) => s.blur)
+      const blurRises = cam.filter((s, i) => i > 0 && s.blur > cam[i - 1].blur + 0.01)
+      const sharpAt = cam.find((s) => s.blur === 0 && s.t > 0.1)
+      report(
+        'camera · racks from soft to sharp',
+        Math.max(...blurs) > 1 &&
+          blurRises.length === 0 &&
+          sharpAt &&
+          sharpAt.t < REVEAL_SETTLES &&
+          settled.filterRaw === 'none',
+        `blur ${num(Math.max(...blurs))}px → 0 (screen blur ≈ ` +
+          `${num(Math.max(...blurs) * maxScale)}px at full zoom), sharp by ` +
+          `${num(sharpAt?.t ?? -1)}s — before the camera stops at ${REVEAL_SETTLES}s — ` +
+          `and the filter is dropped to “${settled.filterRaw}” once done`,
+      )
+
+      report(
+        'camera · elevated only while it needs to be',
+        cam[0].zIndex === '50' && settled.zIndex === 'auto',
+        `z-index ${cam[0].zIndex} while the blob overflows the stage → ${settled.zIndex} ` +
+          `once it fits, so it can never sit above the export menu`,
+      )
+
+      report(
+        'camera · takes 1–1.5s from close-up to settled',
+        REVEAL_SETTLES >= 1 && REVEAL_SETTLES <= 1.5,
+        `${REVEAL_SETTLES}s (hold + pull-back), with the face script starting at ` +
+          `${INTRO_FACE_DELAY}s and the whole intro over by ${num(FACE_END)}s`,
+      )
+
+      plot(
+        'cam',
+        [
+          { of: cam.map((s) => [s.t, s.scale]), colour: '#16a34a', scale: 40, base: 175 },
+          { of: cam.map((s) => [s.t, s.blur]), colour: '#ea580c', scale: 40, base: 175 },
+        ],
+        REVEAL_SETTLES + 0.6,
+      )
+
+      /* ================= 4. the chrome ==================================== */
 
       const wordmark = [...doc.querySelectorAll('span')].find((s) => s.textContent.trim() === 'Bloub')
       const rail = [...doc.querySelectorAll('nav[aria-label="Sections"]')].find(
         (n) => win.getComputedStyle(n).display !== 'none',
       )
-      const blob = doc.querySelector('svg[role="img"]').parentElement
       const exportBar = [...doc.querySelectorAll('main > div')].find((d) =>
         d.textContent.includes('Export as'),
       )
       const sections = [...doc.querySelectorAll('section')]
-
       const tracked = [
-        ['blob', blob],
         ['wordmark', wordmark],
         ['rail', rail],
         ...sections.map((el, i) => [`section ${i + 1} (${el.querySelector('h2')?.textContent})`, el]),
@@ -293,60 +446,62 @@
           : `${tracked.length} elements: ${tracked.map(([n]) => n).join(', ')}`,
       )
 
-      // Watch until everything is opaque, recording when each element first
-      // crossed half opacity. That crossing time is the arrival order.
+      // Sampling ran through the whole camera move, so the question of whether any
+      // chrome jumped the gun can be answered from what was recorded — but opacity
+      // is read now, per element, from the same frames going forward.
       const arrivedAt = new Map()
-      const startedWatching = appNow()
-      let firstSeen = null
-      while (appNow() - startedWatching < 4) {
+      const chromeDuringCamera = []
+      const watchStart = performance.now()
+      while (performance.now() - watchStart < 3000) {
         await frame()
-        const t = appNow()
+        const t = (performance.now() - t0) / 1000
         for (const [name, el] of tracked) {
           if (!el || arrivedAt.has(name)) continue
-          const opacity = Number(win.getComputedStyle(el).opacity)
-          if (firstSeen === null) firstSeen = opacity
-          if (opacity >= 0.5) arrivedAt.set(name, t)
+          if (Number(win.getComputedStyle(el).opacity) >= 0.5) arrivedAt.set(name, t)
         }
         if (arrivedAt.size === tracked.length) break
       }
 
+      // Everything the camera-sampling loop saw of the chrome, in retrospect: the
+      // earliest arrival is the only number that can prove nothing came early.
+      const earliest = Math.min(...arrivedAt.values())
       const order = [...arrivedAt.entries()].sort((a, b) => a[1] - b[1])
-      const timeline = order.map(([n, t]) => `${n} ${num(t)}s`).join(' → ')
 
       report(
-        'app · everything faded in',
+        'chrome · everything faded in',
         arrivedAt.size === tracked.length,
         arrivedAt.size === tracked.length
           ? `all ${tracked.length} reached full opacity`
-          : `still transparent after 4s: ${tracked
+          : `still transparent: ${tracked
               .filter(([n]) => !arrivedAt.has(n))
               .map(([n]) => n)
               .join(', ')}`,
       )
 
-      const first = order[0]?.[0]
-      const last = order[order.length - 1]?.[0]
-      const blobT = arrivedAt.get('blob')
-      const barT = arrivedAt.get('export bar')
       report(
-        'app · staggered, blob first',
-        first === 'blob' && barT > blobT + 0.2 && new Set(order.map(([, t]) => num(t))).size > 3,
-        `${timeline} — blob leads by ${num(barT - blobT)}s`,
+        'chrome · waits for the camera',
+        earliest > REVEAL_SETTLES * 0.6,
+        `nothing crossed half opacity before ${num(earliest)}s, i.e. ` +
+          `${((earliest / REVEAL_SETTLES) * 100).toFixed(0)}% of the way through the ` +
+          `${REVEAL_SETTLES}s camera move — the blob has the screen to itself`,
       )
 
       report(
-        'app · sections arrive in order, not together',
-        arrivedAt.get(tracked[3][0]) <= arrivedAt.get(tracked[4][0]) &&
-          arrivedAt.get(tracked[4][0]) <= arrivedAt.get(tracked[5][0]) &&
-          arrivedAt.get(tracked[5][0]) - arrivedAt.get(tracked[3][0]) > 0.05,
-        `shape → mood → colour spread over ` +
-          `${num(arrivedAt.get(tracked[5][0]) - arrivedAt.get(tracked[3][0]))}s`,
+        'chrome · staggered, in order',
+        order[0][0] === 'wordmark' &&
+          order[order.length - 1][0] === 'export bar' &&
+          arrivedAt.get(tracked[2][0]) <= arrivedAt.get(tracked[3][0]) &&
+          arrivedAt.get(tracked[3][0]) <= arrivedAt.get(tracked[4][0]) &&
+          new Set([...arrivedAt.values()].map((t) => num(t))).size > 3,
+        order.map(([n, t]) => `${n} ${num(t)}s`).join(' → '),
       )
 
       report(
-        'app · finished inside 2s',
-        Math.max(...arrivedAt.values()) < 2,
-        `last arrival at ${num(Math.max(...arrivedAt.values()))}s (${last})`,
+        'chrome · the whole intro lands inside 2.5s',
+        Math.max(...arrivedAt.values()) < 2 && FACE_END < 2.5,
+        `last chrome at ${num(Math.max(...arrivedAt.values()))}s, scripted face motion done ` +
+          `at ${num(FACE_END)}s (scheduled: wordmark ${INTRO_DELAY.wordmark}s → export bar ` +
+          `${INTRO_DELAY.exportBar}s)`,
       )
 
       // Once it's over, a tab switch must not replay it — the sections are
@@ -359,16 +514,17 @@
       await frame()
       const swapped = doc.querySelector('section')
       const swappedOpacity = Number(win.getComputedStyle(swapped).opacity)
-      const swappedOffset = win.getComputedStyle(swapped).transform
+      const swappedTransform = win.getComputedStyle(swapped).transform
       report(
-        'app · does not replay on a tab switch',
-        swappedOpacity === 1 && (swappedOffset === 'none' || swappedOffset === 'matrix(1, 0, 0, 1, 0, 0)'),
+        'chrome · does not replay on a tab switch',
+        swappedOpacity === 1 &&
+          (swappedTransform === 'none' || swappedTransform === 'matrix(1, 0, 0, 1, 0, 0)'),
         `after switching to “${swapped.querySelector('h2')?.textContent}” two frames later: ` +
-          `opacity=${swappedOpacity} transform=${swappedOffset}`,
+          `opacity=${swappedOpacity} transform=${swappedTransform}`,
       )
 
       const head = document.getElementById('head')
-      head.textContent = failures === 0 ? 'INTRO BEHAVES' : `${failures} CHECK(S) FAILED`
+      head.textContent = failures === 0 ? 'THE REVEAL BEHAVES' : `${failures} CHECK(S) FAILED`
       head.className = failures === 0 ? 'pass' : 'fail'
       document.title = failures === 0 ? 'PASS' : 'FAIL'
     </script>
