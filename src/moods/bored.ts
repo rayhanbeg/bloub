@@ -6,14 +6,14 @@
  * Unimpressed is looking at you and not caring, Bored has stopped looking.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const bored = {
-  id: "bored",
-  label: "Bored",
+  id: 'bored',
+  label: 'Bored',
   face: {
-    left: { rx: 10, ry: 4.2, sq: 3.2, cy: 106, rot: -9 },
-    right: { rx: 10, ry: 4.2, sq: 3.2, cy: 106, rot: -9 },
+    left: { rx: 10.4, ry: 4.2, sq: 3.2, cy: 105, rot: -11 },
+    right: { rx: 10.4, ry: 4.2, sq: 3.2, cy: 105, rot: -11 },
   },
   // Long slow sighing breaths, a sag, and a gaze that drifts away and stays away.
   motion: {
@@ -28,4 +28,4 @@ export const bored = {
     blinkEvery: 5.8,
     blinkDuration: 0.26,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

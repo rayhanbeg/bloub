@@ -99,7 +99,7 @@ export function ExportBar() {
           type="button"
           onClick={() => run('png')}
           disabled={busy !== null}
-          className="h-9 px-4 text-[12.5px] font-medium tracking-tight text-zinc-900 outline-none transition-colors duration-150 hover:bg-zinc-50 disabled:opacity-60"
+          className="h-10 px-4 text-[13px] font-medium tracking-tight text-zinc-900 outline-none transition-colors duration-150 hover:bg-zinc-50 disabled:opacity-60 sm:h-9 sm:text-[12.5px]"
         >
           {primaryLabel}
         </button>
@@ -111,11 +111,16 @@ export function ExportBar() {
           aria-expanded={open}
           aria-haspopup="menu"
           onClick={() => setOpen((v) => !v)}
-          className="flex w-8 items-center justify-center text-zinc-500 outline-none transition-colors duration-150 hover:bg-zinc-50 hover:text-zinc-900"
+          className="flex w-10 items-center justify-center text-zinc-500 outline-none transition-colors duration-150 hover:bg-zinc-50 hover:text-zinc-900 sm:w-8"
         >
           <motion.span
             animate={{ rotate: open ? 180 : 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.6 }}
+            transition={{
+              type: 'spring',
+              stiffness: 500,
+              damping: 34,
+              mass: 0.6,
+            }}
             className="flex"
           >
             <ChevronDownIcon className="h-3.5 w-3.5" />
@@ -130,9 +135,19 @@ export function ExportBar() {
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.985 }}
-            transition={{ type: 'spring', stiffness: 520, damping: 38, mass: 0.6 }}
+            transition={{
+              type: 'spring',
+              stiffness: 520,
+              damping: 38,
+              mass: 0.6,
+            }}
             style={{ transformOrigin: 'bottom center' }}
-            className="absolute bottom-[calc(100%+8px)] left-1/2 w-[236px] -translate-x-1/2 overflow-hidden rounded-xl bg-white p-1 ring-1 ring-zinc-950/[0.07] shadow-[0_1px_2px_rgba(9,9,11,0.06),0_12px_32px_-12px_rgba(9,9,11,0.22)]"
+            // The menu is centred on the button and opens upward. Its width is
+            // capped against the viewport rather than fixed, so on a narrow phone
+            // it narrows instead of running off the edge — the button always sits
+            // near the horizontal centre, so a viewport-wide cap is enough to keep
+            // both edges on screen without measuring anything.
+            className="absolute bottom-[calc(100%+8px)] left-1/2 w-[min(244px,calc(100vw-28px))] -translate-x-1/2 overflow-hidden rounded-xl bg-white p-1 ring-1 ring-zinc-950/[0.07] shadow-[0_1px_2px_rgba(9,9,11,0.06),0_12px_32px_-12px_rgba(9,9,11,0.22)]"
           >
             {ITEMS.map(({ id, label, Icon, busyLabel }) => {
               const running = busy === id
@@ -144,7 +159,8 @@ export function ExportBar() {
                   disabled={busy !== null}
                   onClick={() => run(id)}
                   className={cn(
-                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-left text-[12.5px] tracking-tight outline-none transition-colors duration-100',
+                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-[13px] tracking-tight outline-none transition-colors duration-100',
+                    'sm:py-[7px] sm:text-[12.5px]',
                     'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50',
                   )}
                 >

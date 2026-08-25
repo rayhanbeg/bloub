@@ -6,11 +6,11 @@
  * raised brow are only there so each half of the face agrees with its own brow.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const skeptical = {
-  id: "skeptical",
-  label: "Skeptical",
+  id: 'skeptical',
+  label: 'Skeptical',
   face: {
     left: {
       rx: 10.4,
@@ -38,4 +38,4 @@ export const skeptical = {
     gazeXHarmonic: 1,
     blinkEvery: 5,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

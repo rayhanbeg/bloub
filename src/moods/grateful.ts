@@ -7,11 +7,11 @@
  * Blissful's warmth is aimed at nobody in particular.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const grateful = {
-  id: "grateful",
-  label: "Grateful",
+  id: 'grateful',
+  label: 'Grateful',
   face: {
     left: {
       op: 0,
@@ -34,4 +34,4 @@ export const grateful = {
     sag: 1.5,
     blinkEvery: 5.2,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

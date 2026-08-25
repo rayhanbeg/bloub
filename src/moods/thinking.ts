@@ -6,14 +6,14 @@
  * a problem from Daydreaming, which drifts off with its eyes wide open.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const thinking = {
-  id: "thinking",
-  label: "Thinking",
+  id: 'thinking',
+  label: 'Thinking',
   face: {
-    left: { cx: 82, cy: 97, rx: 8.8, ry: 13.6, sq: 2.7 },
-    right: { cx: 128, cy: 97, rx: 8.8, ry: 13.6, sq: 2.7 },
+    left: { cx: 84, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
+    right: { cx: 130, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
   },
   // A slow lean with the gaze drifting further up and away.
   motion: {
@@ -28,4 +28,4 @@ export const thinking = {
     gazeY: -1.8,
     blinkEvery: 4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

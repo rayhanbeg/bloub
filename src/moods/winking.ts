@@ -5,11 +5,11 @@
  * solid capsule on one side, a closed arc on the other.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const winking = {
-  id: "winking",
-  label: "Winking",
+  id: 'winking',
+  label: 'Winking',
   face: {
     left: { rx: 10.2, ry: 17.8, sq: 2.5, cy: 100 },
     right: { op: 0, cy: 100, arc: { op: 1, w: 14, bend: -9, thick: 5.6 } },
@@ -24,4 +24,4 @@ export const winking = {
     tilt: -2,
     blinkEvery: 4.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

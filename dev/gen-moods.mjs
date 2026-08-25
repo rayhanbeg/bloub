@@ -34,14 +34,29 @@ mood(
 mood(
   'attentive',
   'Attentive',
-  `Attentive — locked on and listening.
+  `Attentive — slim, tall eyes under a thin pair of lifted brows: perked up and
+ * listening.
  *
- * The only difference from Neutral is the eyes standing taller and narrower.
- * That restraint is the point: if Attentive needed more than a change of
- * proportion, Neutral would have nothing left to be quieter than.`,
+ * Proportion alone couldn't carry this. Eyes a little taller than Neutral's is
+ * the kind of difference that vanishes at thumbnail size, so Attentive takes the
+ * brows — the one cue that unambiguously means *alert* — and keeps them thin and
+ * low over the eye. Amazed uses brows too, but sits them far higher over much
+ * bigger eyes: a lift of interest versus a lift of awe.`,
   `{
-    left: { rx: 9.2, ry: 19.4, sq: 2.5, cy: 99 },
-    right: { rx: 9.2, ry: 19.4, sq: 2.5, cy: 99 },
+    left: {
+      rx: 8.8,
+      ry: 18.6,
+      sq: 2.5,
+      cy: 99,
+      brow: { op: 1, dy: -25, w: 11.5, bend: -3, thick: 3.2 },
+    },
+    right: {
+      rx: 8.8,
+      ry: 18.6,
+      sq: 2.5,
+      cy: 99,
+      brow: { op: 1, dy: -25, w: 11.5, bend: -3, thick: 3.2 },
+    },
   }`,
   `A shade quicker than Neutral, blinking a little more often — engaged.`,
   `{ loopPeriod: 3.8, bob: 1.9, wobble: 1.1, blinkEvery: 3.6 }`,
@@ -56,8 +71,8 @@ mood(
  * surprise; one stretching further than the other reads as *interest*, because
  * it looks like the face is still adjusting to what it's seeing.`,
   `{
-    left: { rx: 10.2, ry: 19.4, sq: 2.4, cy: 97 },
-    right: { rx: 10.2, ry: 14, sq: 2.4, cy: 101 },
+    left: { rx: 10.2, ry: 20.4, sq: 2.4, cy: 96 },
+    right: { rx: 10.2, ry: 12.6, sq: 2.4, cy: 102 },
   }`,
   `Leans in and peers, gaze sweeping slowly across — looking *at* something.`,
   `{
@@ -81,8 +96,8 @@ mood(
  * rather than as a misaligned face. Narrowing them is what separates working on
  * a problem from Daydreaming, which drifts off with its eyes wide open.`,
   `{
-    left: { cx: 82, cy: 97, rx: 8.8, ry: 13.6, sq: 2.7 },
-    right: { cx: 128, cy: 97, rx: 8.8, ry: 13.6, sq: 2.7 },
+    left: { cx: 84, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
+    right: { cx: 130, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
   }`,
   `A slow lean with the gaze drifting further up and away.`,
   `{
@@ -153,13 +168,15 @@ mood(
   `Excited — the biggest, roundest *open* eyes in the set, lifted high, with a
  * blush.
  *
- * \`sq: 2.1\` is nearly a true ellipse, which is softer than Neutral's rounded
- * capsule and much softer than any of the narrowed moods. Big, round and soft is
- * the whole recipe; the hop in the motion does the rest.`,
+ * \`sq: 2.05\` is all but a true ellipse, which is softer than Neutral's rounded
+ * capsule and much softer than any of the narrowed moods, and the extra width
+ * makes them read as *bubbly* rather than merely large. Big, round and soft is
+ * the whole recipe; Amazed reaches the same size but adds brows, and Surprised
+ * punches a hole. The hop in the motion does the rest.`,
   `{
-    left: { rx: 11.4, ry: 18.2, sq: 2.1, cy: 97 },
-    right: { rx: 11.4, ry: 18.2, sq: 2.1, cy: 97 },
-    blush: 0.5,
+    left: { rx: 11.8, ry: 14.6, sq: 2.05, cy: 96 },
+    right: { rx: 11.8, ry: 14.6, sq: 2.05, cy: 96 },
+    blush: 0.6,
   }`,
   `The fastest breathing of any mood, plus a hop once per loop.`,
   `{
@@ -183,8 +200,8 @@ mood(
  * is the heaviest lid here, and a heavy lid on a shallow curve reads as deeply
  * relaxed. Laughing is thin and deeply bent; this is the exact opposite.`,
   `{
-    left: { op: 0, cy: 101, arc: { op: 1, w: 17, bend: -3.5, thick: 7.6 } },
-    right: { op: 0, cy: 101, arc: { op: 1, w: 17, bend: -3.5, thick: 7.6 } },
+    left: { op: 0, cy: 101, arc: { op: 1, w: 15.5, bend: -5, thick: 7.2 } },
+    right: { op: 0, cy: 101, arc: { op: 1, w: 15.5, bend: -5, thick: 7.2 } },
     blush: 0.85,
   }`,
   `Almost the slowest loop in the set, floating very slightly upward.`,
@@ -201,8 +218,8 @@ mood(
  * Nervous and Scared use, kept here as the residue of something that has just
  * stopped being a problem. The long exhale in the motion does the rest.`,
   `{
-    left: { op: 0, cy: 102, arc: { op: 1, w: 16, bend: -2, thick: 4.4 } },
-    right: { op: 0, cy: 102, arc: { op: 1, w: 16, bend: -2, thick: 4.4 } },
+    left: { op: 0, cy: 102, arc: { op: 1, w: 15.5, bend: -3.5, thick: 4.6 } },
+    right: { op: 0, cy: 102, arc: { op: 1, w: 15.5, bend: -3.5, thick: 4.6 } },
     sweat: { op: 0.55 },
   }`,
   `The deepest breath in the set — a long slow exhale, settling downward.`,
@@ -255,17 +272,19 @@ mood(
 mood(
   'starstruck',
   'Star-struck',
-  `Star-struck — huge round eyes with a big off-centre pupil, leaving a bright
- * crescent of white across the top outer edge of each one.
+  `Star-struck — big soft eyes with a small pupil high and toward the nose, over
+ * the strongest blush of any wide-eyed mood: gazing up at someone adoringly.
  *
- * That crescent is the gleam, and it's the only place in the app where the pupil
- * is used as a *highlight* rather than as a pupil. Because the hole is punched
- * in the body colour, pushing it down and inward doesn't read as looking
- * down-and-in — it reads as light catching the top of the eye.`,
+ * A large hole was the obvious first idea here and it was wrong — it ate the eye
+ * and left a thin ring that read as shock, not admiration. What actually sells
+ * adoration is *how much white is left*: a small pupil pushed up and inward
+ * leaves a broad bright field under and around it, which is the look of someone
+ * staring up at a hero. Surprised keeps its hole big and dead centre; Scared
+ * keeps its small pupil high but adds cold sweat and much narrower eyes.`,
   `{
-    left: { rx: 11.6, ry: 12.8, sq: 2, cy: 99, pupil: { op: 1, dx: 2.4, dy: 2.8, r: 7.2 } },
-    right: { rx: 11.6, ry: 12.8, sq: 2, cy: 99, pupil: { op: 1, dx: -2.4, dy: 2.8, r: 7.2 } },
-    blush: 0.9,
+    left: { rx: 12, ry: 14.6, sq: 2.1, cy: 98, pupil: { op: 1, dx: 2.6, dy: -1.8, r: 4.4 } },
+    right: { rx: 12, ry: 14.6, sq: 2.1, cy: 98, pupil: { op: 1, dx: -2.6, dy: -1.8, r: 4.4 } },
+    blush: 0.95,
   }`,
   `Bouncing on the spot and swaying — starry rather than merely surprised.`,
   `{
@@ -289,8 +308,8 @@ mood(
  * the real work: chin up. Content rather than delighted, and pleased with
  * itself rather than with you.`,
   `{
-    left: { op: 0, cy: 96, arc: { op: 1, w: 14, bend: -5.5, thick: 4.8, dy: -1 } },
-    right: { op: 0, cy: 96, arc: { op: 1, w: 14, bend: -5.5, thick: 4.8, dy: -1 } },
+    left: { op: 0, cy: 95, arc: { op: 1, w: 15.5, bend: -4.5, thick: 4.2, dy: -1 } },
+    right: { op: 0, cy: 95, arc: { op: 1, w: 15.5, bend: -4.5, thick: 4.2, dy: -1 } },
   }`,
   `Chin up: a negative sag lifts the whole body, and it breathes unhurriedly.`,
   `{
@@ -307,14 +326,17 @@ mood(
 mood(
   'smug',
   'Smug',
-  `Smug — narrow lids sitting *high* in the face, tipped inward, head cocked.
+  `Smug — one eye narrowed to a slit, the other left half-open, both riding high
+ * in the face.
  *
- * Height is what separates this from every other narrowed-eye mood. Lids high
- * with the body lifted reads as looking down at you; Cool sits level and Bored
- * sits low. The head tilt keeps it amused rather than hostile.`,
+ * The asymmetry is the whole expression, and it's what keeps Smug out of Sneaky's
+ * territory: a clean mirrored V is a plan, but one eye lazier than the other is
+ * *knowing* — the closest thing to a smirk that eyes alone can manage. Height
+ * does the rest. Lids high with the body lifted reads as looking down at you,
+ * where Cool sits level and Bored sits low.`,
   `{
-    left: { rx: 11, ry: 5, sq: 3.1, cy: 96, rot: 8 },
-    right: { rx: 11, ry: 5, sq: 3.1, cy: 96, rot: -8 },
+    left: { rx: 11, ry: 4.6, sq: 3.2, cy: 96, rot: 6 },
+    right: { rx: 10.6, ry: 9.4, sq: 2.8, cy: 97, rot: -3 },
   }`,
   `Lifted, tilted and slow. Nothing here is in a hurry to be impressed.`,
   `{
@@ -401,29 +423,32 @@ mood(
 mood(
   'mischievous',
   'Mischievous',
-  `Mischievous — chunky tilted crescents with both pupils shoved to one side.
+  `Mischievous — half-open crescents tipped so their *inner* ends lift, with both
+ * pupils cutting off to one side and a light blush.
  *
- * Sneaky's cousin, separated from it by weight: Sneaky is two thin flat dashes
- * creeping along, while these are half-open crescents with visible pupils
- * cutting sideways at something. Scheming, and enjoying it.`,
+ * Sneaky's cousin, and the two are separated by the direction of the tilt.
+ * Sneaky's inner ends drive *down* into a mirrored V, which is a creeping,
+ * calculating shape; lifting them instead gives the impish, cat-like arch that
+ * means someone is about to enjoy themselves. The visible pupils aim that
+ * intention at a target, and the blush says it's mischief rather than malice.`,
   `{
     left: {
-      rx: 11.2,
-      ry: 7.6,
+      rx: 11,
+      ry: 7.2,
       sq: 2.4,
       cy: 98,
-      rot: 13,
-      pupil: { op: 1, dx: 4, dy: 0, r: 3.4 },
+      rot: -16,
+      pupil: { op: 1, dx: 3.6, dy: 0, r: 3 },
     },
     right: {
-      rx: 11.2,
-      ry: 7.6,
+      rx: 11,
+      ry: 7.2,
       sq: 2.4,
       cy: 98,
-      rot: -13,
-      pupil: { op: 1, dx: 4, dy: 0, r: 3.4 },
+      rot: 16,
+      pupil: { op: 1, dx: 3.6, dy: 0, r: 3 },
     },
-    blush: 0.4,
+    blush: 0.45,
   }`,
   `Bouncy and tilted, with the gaze flicking back and forth twice a loop.`,
   `{
@@ -466,14 +491,17 @@ mood(
 mood(
   'shy',
   'Shy',
-  `Shy — small, narrow, *open* eyes sitting low, full blush, looking away.
+  `Shy — small, narrow, *open* eyes sitting low and drawn closer together, with
+ * the strongest blush in the set.
  *
- * Open eyes are the difference from Embarrassed, which screws them shut. Shy is
- * still willing to look — just not for long, hence the slow glance away and the
- * body drawing itself in a few percent smaller.`,
+ * Open eyes are the difference from Embarrassed, which screws them shut. What
+ * makes this timid rather than merely small is the narrowed gap: pulling the pair
+ * inward shrinks the face inside the body, and a face with room around it reads
+ * as young and unsure. Melancholic also moves its eyes, but *sideways* and much
+ * lower — drifting away rather than curling in.`,
   `{
-    left: { rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
-    right: { rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
+    left: { cx: 81, rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
+    right: { cx: 119, rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
     blush: 1,
   }`,
   `Drawn back and slightly smaller, with a slow look-away once per loop.`,
@@ -528,18 +556,18 @@ mood(
  * Amazed goes *tall* and raises its brows. Awe, looking up at something big.`,
   `{
     left: {
-      rx: 11.6,
-      ry: 20,
+      rx: 12,
+      ry: 20.4,
       sq: 2.2,
       cy: 101,
-      brow: { op: 1, dy: -29, w: 12, bend: -6, thick: 4 },
+      brow: { op: 1, dy: -30, w: 12.5, bend: -6.5, thick: 4.4 },
     },
     right: {
-      rx: 11.6,
-      ry: 20,
+      rx: 12,
+      ry: 20.4,
       sq: 2.2,
       cy: 101,
-      brow: { op: 1, dy: -29, w: 12, bend: -6, thick: 4 },
+      brow: { op: 1, dy: -30, w: 12.5, bend: -6.5, thick: 4.4 },
     },
   }`,
   `Held still and lifted, with the gaze drifting slowly upward.`,
@@ -564,8 +592,8 @@ mood(
  * one clean emotion. Curious mismatches only the *height* of two otherwise
  * identical eyes; this mismatches size, height and rotation at once.`,
   `{
-    left: { rx: 8.2, ry: 11.6, sq: 2.8, cy: 105, rot: -6 },
-    right: { rx: 11.2, ry: 18.8, sq: 2.4, cy: 97, rot: 4 },
+    left: { rx: 7.6, ry: 9.8, sq: 2.8, cy: 106, rot: -8 },
+    right: { rx: 11.4, ry: 19.6, sq: 2.4, cy: 96, rot: 5 },
   }`,
   `An off-kilter sway, as if hunting for an angle that makes sense.`,
   `{ loopPeriod: 4.4, wobble: 1.2, lean: 4, tilt: 2.5, blinkEvery: 3 }`,
@@ -616,23 +644,27 @@ mood(
  *
  * The pupils are what make it. Sneaky *glances* sideways by moving the whole
  * eye; here the eyes stay put and only the pupils slide, which is exactly the
- * difference between looking at something and not trusting it.`,
+ * difference between looking at something and not trusting it.
+ *
+ * The lids have to keep enough height for the pupil to sit *inside* them. Drop
+ * below about \`ry: 7\` with a pupil this size and the hole reaches the edge, which
+ * stops reading as a pupil and starts reading as a bite taken out of the eye.`,
   `{
     left: {
       rx: 10.6,
-      ry: 6.2,
-      sq: 3,
+      ry: 7.8,
+      sq: 2.9,
       cy: 100,
-      rot: 8,
-      pupil: { op: 1, dx: -4.2, dy: 0, r: 2.9 },
+      rot: 6,
+      pupil: { op: 1, dx: -3.8, dy: 0, r: 3 },
     },
     right: {
       rx: 10.6,
-      ry: 6.2,
+      ry: 7,
       sq: 3,
       cy: 101,
-      rot: 3,
-      pupil: { op: 1, dx: -4.2, dy: 0, r: 2.9 },
+      rot: 2,
+      pupil: { op: 1, dx: -3.8, dy: 0, r: 3 },
     },
   }`,
   `Still and watchful, with one slow sweep per loop.`,
@@ -650,16 +682,22 @@ mood(
 mood(
   'daydreaming',
   'Daydreaming',
-  `Daydreaming — tall soft eyes riding high, tipped the *same* way as each other
- * and very slightly out of step.
+  `Daydreaming — half-lidded eyes riding high in the face, tipped the *same* way
+ * as each other and slightly out of step.
  *
  * Thinking narrows its eyes because it's working; this one has stopped working.
- * Two tricks sell it: a parallel tilt, which reads as unfocused where a mirrored
- * tilt would read as an expression, and a one-unit height difference between the
- * eyes — enough to look absent, not enough to look like Confused's mistake.`,
+ * Three tricks sell it: eyes riding high, so the face is looking up and away; a
+ * parallel tilt, which reads as unfocused where a mirrored tilt would read as an
+ * expression; and a height difference between the two — enough to look absent,
+ * not enough to look like Confused's mistake.
+ *
+ * They have to be *wider than tall* for any of that to land. A tilt is invisible
+ * on a tall oval, because rotating something nearly symmetrical barely changes
+ * its silhouette — the first version of this mood tilted 9° and read as plain
+ * Neutral sitting high.`,
   `{
-    left: { rx: 10.4, ry: 14.6, sq: 2.2, cy: 96, rot: -8 },
-    right: { rx: 10.4, ry: 13.4, sq: 2.2, cy: 98, rot: -8 },
+    left: { rx: 10.8, ry: 9.8, sq: 2.3, cy: 95, rot: -11 },
+    right: { rx: 10.8, ry: 8.4, sq: 2.3, cy: 97.5, rot: -11 },
     blush: 0.3,
   }`,
   `The longest loop apart from Sleepy, with a wide dreamy lean and an upward gaze.`,
@@ -742,8 +780,8 @@ mood(
  * as a droop rather than as an expression, which is precisely the point:
  * Unimpressed is looking at you and not caring, Bored has stopped looking.`,
   `{
-    left: { rx: 10, ry: 4.2, sq: 3.2, cy: 106, rot: -9 },
-    right: { rx: 10, ry: 4.2, sq: 3.2, cy: 106, rot: -9 },
+    left: { rx: 10.4, ry: 4.2, sq: 3.2, cy: 105, rot: -11 },
+    right: { rx: 10.4, ry: 4.2, sq: 3.2, cy: 105, rot: -11 },
   }`,
   `Long slow sighing breaths, a sag, and a gaze that drifts away and stays away.`,
   `{
@@ -763,14 +801,17 @@ mood(
 mood(
   'sleepy',
   'Sleepy',
-  `Sleepy — short, narrow slits sitting lower than any other mood's.
+  `Sleepy — short, narrow slits sitting lower than any other mood's, one lid
+ * hanging a shade further than the other.
  *
  * They stay as thin *shapes* rather than closed arcs on purpose: the drowsy slow
  * blink is the whole point here, and a lid can only visibly fall if there is
- * something still open to close.`,
+ * something still open to close. The mismatch between the two is what keeps it
+ * clear of Unimpressed's matched deadpan — one eye losing the fight first is
+ * exactly how falling asleep looks.`,
   `{
-    left: { rx: 8.6, ry: 3.2, sq: 3.4, cy: 107 },
-    right: { rx: 8.6, ry: 3.2, sq: 3.4, cy: 107 },
+    left: { rx: 8.4, ry: 3.6, sq: 3.4, cy: 108 },
+    right: { rx: 8.4, ry: 2.6, sq: 3.4, cy: 108 },
   }`,
   `The slowest breath in the set, a held head-tilt, and a blink that takes well
   // over a second to close and reopen — all the way shut.`,
@@ -801,18 +842,18 @@ mood(
  * blinks more often than any other mood. Watchfulness with no confidence in it.`,
   `{
     left: {
-      rx: 9.4,
-      ry: 14.8,
+      rx: 9.8,
+      ry: 15.2,
       sq: 2.5,
       cy: 100,
-      pupil: { op: 1, dx: 3.6, dy: 0.8, r: 3.6 },
+      pupil: { op: 1, dx: 3.4, dy: 0.8, r: 3.4 },
     },
     right: {
-      rx: 9.4,
-      ry: 13,
+      rx: 9.8,
+      ry: 13.4,
       sq: 2.5,
       cy: 101,
-      pupil: { op: 1, dx: 3.6, dy: 0.8, r: 3.6 },
+      pupil: { op: 1, dx: 3.4, dy: 0.8, r: 3.4 },
     },
     sweat: { op: 0.8 },
   }`,
@@ -865,16 +906,16 @@ mood(
 mood(
   'melancholic',
   'Melancholic',
-  `Melancholic — half-lidded eyes sitting low and shifted bodily to one side.
- * No tear.
+  `Melancholic — half-lidded eyes sitting low, shifted bodily off centre and
+ * tipped gently down at their outer ends. No tear.
  *
- * Sad is acute: slanted, tearful, sagging hard. This is the long quiet version —
- * nothing is distorted, the eyes have simply drifted off centre and settled
- * down. The sideways shift is the tell that separates it from Cool, which sits
- * dead centre and much wider.`,
+ * Sad is acute: steeply slanted, tearful, sagging hard. This is the long quiet
+ * version — the eyes have simply drifted off to one side, settled down, and
+ * lost the will to stay level. The sideways shift is the tell that separates it
+ * from Cool, which sits dead centre and much wider.`,
   `{
-    left: { cx: 73, cy: 107, rx: 10, ry: 9, sq: 2.5 },
-    right: { cx: 113, cy: 107, rx: 10, ry: 9, sq: 2.5 },
+    left: { cx: 72, cy: 107, rx: 10.2, ry: 8.6, sq: 2.5, rot: -6 },
+    right: { cx: 112, cy: 108, rx: 10.2, ry: 8.6, sq: 2.5, rot: -6 },
   }`,
   `Very slow and heavy, tilted, with the gaze resting downward throughout.`,
   `{
@@ -894,16 +935,19 @@ mood(
 mood(
   'sad',
   'Sad',
-  `Sad — squashed eyes with their *inner* ends lifted steeply, sitting low, and
+  `Sad — flattened eyes with their *inner* ends lifted steeply, sitting low, and
  * one big tear.
  *
  * Inner corners raised is the universal read for sadness, and it is the exact
  * mirror of Angry. That pair of opposite rotations is the cheapest, clearest
- * emotional signal there is.`,
+ * emotional signal there is — but only if the eye is wide enough relative to its
+ * height for a tilt to be *visible*, which is why these are flattened ovals
+ * rather than the near-circles they started as. They stay soft (\`sq: 2.4\`) where
+ * Angry's are hard-edged dashes.`,
   `{
-    left: { rx: 10.4, ry: 10.2, sq: 2.5, cy: 103, rot: -18 },
-    right: { rx: 10.4, ry: 10.2, sq: 2.5, cy: 103, rot: 18 },
-    tear: { op: 1, r: 7 },
+    left: { rx: 11, ry: 6.8, sq: 2.4, cy: 104, rot: -20 },
+    right: { rx: 11, ry: 6.8, sq: 2.4, cy: 104, rot: 20 },
+    tear: { op: 1, x: 67, y: 121, r: 6.6 },
   }`,
   `Slow heavy breathing, body sagging, gaze drifting down and slowly back.`,
   `{
@@ -929,8 +973,8 @@ mood(
  * up; flipping the same primitive over is all it takes, and the sobbing hitch in
  * the motion does the rest.`,
   `{
-    left: { op: 0, cy: 102, arc: { op: 1, w: 13.4, bend: 6.5, thick: 5.4 } },
-    right: { op: 0, cy: 102, arc: { op: 1, w: 13.4, bend: 6.5, thick: 5.4 } },
+    left: { op: 0, cy: 102, arc: { op: 1, w: 14, bend: 7.5, thick: 5.4 } },
+    right: { op: 0, cy: 102, arc: { op: 1, w: 14, bend: 7.5, thick: 5.4 } },
     tear: { op: 1, r: 7.5 },
   }`,
   `Sobbing: fast shallow breaths with a hitch (the tremble) layered on top.`,
@@ -959,14 +1003,14 @@ mood(
     left: {
       op: 0,
       cy: 101,
-      arc: { op: 1, w: 13, bend: 0, thick: 6.6, rot: 6 },
-      brow: { op: 1, dy: -13, w: 12, bend: -1.5, thick: 4.6, rot: 17 },
+      arc: { op: 1, w: 13, bend: 0, thick: 7, rot: 3 },
+      brow: { op: 1, dy: -14, w: 12, bend: -1.5, thick: 4.6, rot: 20 },
     },
     right: {
       op: 0,
       cy: 101,
-      arc: { op: 1, w: 13, bend: 0, thick: 6.6, rot: -6 },
-      brow: { op: 1, dy: -13, w: 12, bend: -1.5, thick: 4.6, rot: -17 },
+      arc: { op: 1, w: 13, bend: 0, thick: 7, rot: -3 },
+      brow: { op: 1, dy: -14, w: 12, bend: -1.5, thick: 4.6, rot: -20 },
     },
     sweat: { op: 0.6 },
   }`,
@@ -995,19 +1039,19 @@ mood(
   `{
     left: {
       rx: 10.2,
-      ry: 4,
+      ry: 3.6,
       sq: 3,
       cy: 100,
-      rot: 22,
-      brow: { op: 1, dy: -19, w: 12.5, bend: -2, thick: 4.8, rot: 21 },
+      rot: 24,
+      brow: { op: 1, dy: -21, w: 12.5, bend: -2, thick: 4.8, rot: 24 },
     },
     right: {
       rx: 10.2,
-      ry: 4,
+      ry: 3.6,
       sq: 3,
       cy: 100,
-      rot: -22,
-      brow: { op: 1, dy: -19, w: 12.5, bend: -2, thick: 4.8, rot: -21 },
+      rot: -24,
+      brow: { op: 1, dy: -21, w: 12.5, bend: -2, thick: 4.8, rot: -24 },
     },
   }`,
   `Sharp shallow breaths, body held compressed, and the fastest vibration in the
@@ -1035,8 +1079,8 @@ mood(
  * showing all the way around and underneath — the whites-of-the-eyes look — and
  * it is far smaller than Surprised's ring.`,
   `{
-    left: { rx: 9.6, ry: 18.8, sq: 2.2, cy: 99, pupil: { op: 1, dy: -2.8, r: 3.8 } },
-    right: { rx: 9.6, ry: 18.8, sq: 2.2, cy: 99, pupil: { op: 1, dy: -2.8, r: 3.8 } },
+    left: { rx: 9.6, ry: 18.8, sq: 2.2, cy: 99, pupil: { op: 1, dy: -3.4, r: 4.2 } },
+    right: { rx: 9.6, ry: 18.8, sq: 2.2, cy: 99, pupil: { op: 1, dy: -3.4, r: 4.2 } },
     sweat: { op: 1 },
   }`,
   `Jittery trembling plus eyes darting side to side four times a loop.`,

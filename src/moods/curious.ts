@@ -6,14 +6,14 @@
  * it looks like the face is still adjusting to what it's seeing.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const curious = {
-  id: "curious",
-  label: "Curious",
+  id: 'curious',
+  label: 'Curious',
   face: {
-    left: { rx: 10.2, ry: 19.4, sq: 2.4, cy: 97 },
-    right: { rx: 10.2, ry: 14, sq: 2.4, cy: 101 },
+    left: { rx: 10.2, ry: 20.4, sq: 2.4, cy: 96 },
+    right: { rx: 10.2, ry: 12.6, sq: 2.4, cy: 102 },
   },
   // Leans in and peers, gaze sweeping slowly across — looking *at* something.
   motion: {
@@ -26,4 +26,4 @@ export const curious = {
     gazeXHarmonic: 1,
     blinkEvery: 3.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

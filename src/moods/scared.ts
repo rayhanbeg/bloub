@@ -8,25 +8,25 @@
  * it is far smaller than Surprised's ring.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const scared = {
-  id: "scared",
-  label: "Scared",
+  id: 'scared',
+  label: 'Scared',
   face: {
     left: {
       rx: 9.6,
       ry: 18.8,
       sq: 2.2,
       cy: 99,
-      pupil: { op: 1, dy: -2.8, r: 3.8 },
+      pupil: { op: 1, dy: -3.4, r: 4.2 },
     },
     right: {
       rx: 9.6,
       ry: 18.8,
       sq: 2.2,
       cy: 99,
-      pupil: { op: 1, dy: -2.8, r: 3.8 },
+      pupil: { op: 1, dy: -3.4, r: 4.2 },
     },
     sweat: { op: 1 },
   },
@@ -43,4 +43,4 @@ export const scared = {
     blinkEvery: 2.2,
     blinkJitter: 0.8,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

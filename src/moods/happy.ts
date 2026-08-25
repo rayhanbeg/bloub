@@ -8,11 +8,11 @@
  * Grateful bows inward, Love-struck tips outward. Happy is just *happy*.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const happy = {
-  id: "happy",
-  label: "Happy",
+  id: 'happy',
+  label: 'Happy',
   face: {
     left: { op: 0, cy: 99, arc: { op: 1, w: 14.5, bend: -7, thick: 5.6 } },
     right: { op: 0, cy: 99, arc: { op: 1, w: 14.5, bend: -7, thick: 5.6 } },
@@ -26,4 +26,4 @@ export const happy = {
     wobble: 1.4,
     blinkEvery: 3.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

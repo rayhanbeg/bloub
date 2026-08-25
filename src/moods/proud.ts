@@ -7,21 +7,21 @@
  * itself rather than with you.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const proud = {
-  id: "proud",
-  label: "Proud",
+  id: 'proud',
+  label: 'Proud',
   face: {
     left: {
       op: 0,
-      cy: 96,
-      arc: { op: 1, w: 14, bend: -5.5, thick: 4.8, dy: -1 },
+      cy: 95,
+      arc: { op: 1, w: 15.5, bend: -4.5, thick: 4.2, dy: -1 },
     },
     right: {
       op: 0,
-      cy: 96,
-      arc: { op: 1, w: 14, bend: -5.5, thick: 4.8, dy: -1 },
+      cy: 95,
+      arc: { op: 1, w: 15.5, bend: -4.5, thick: 4.2, dy: -1 },
     },
   },
   // Chin up: a negative sag lifts the whole body, and it breathes unhurriedly.
@@ -34,4 +34,4 @@ export const proud = {
     tilt: -1.5,
     blinkEvery: 5,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

@@ -1,6 +1,8 @@
 /**
- * MoodPicker — 4-column grid of faces on black circles, matching the reference:
- * the expression is what varies, so the body is held constant.
+ * MoodPicker — faces on black circles, matching the reference: the expression is
+ * what varies, so the body is held constant. The grid reflows to as many columns
+ * as the panel is wide, which matters here more than anywhere else — this is the
+ * longest list in the app.
  */
 
 import { useMemo } from 'react'
@@ -33,7 +35,7 @@ export function MoodPicker() {
 
   return (
     <Section title="Mood">
-      <Grid cols={4}>
+      <Grid className="[--tile-min:76px] lg:[--tile-min:62px]">
         {MOODS.map((mood) => (
           <Tile
             key={mood.id}

@@ -7,11 +7,11 @@
  * *kind* of shape; here one has a pupil and the other doesn't.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const dizzy = {
-  id: "dizzy",
-  label: "Dizzy",
+  id: 'dizzy',
+  label: 'Dizzy',
   face: {
     left: {
       rx: 11.4,
@@ -35,4 +35,4 @@ export const dizzy = {
     trembleHarmonic: 18,
     blinkEvery: 3,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

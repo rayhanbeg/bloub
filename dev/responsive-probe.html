@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>responsive probe</title>
+    <style>
+      body {
+        margin: 0;
+        background: #52525b;
+        font: 11px ui-monospace, monospace;
+        color: #fff;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        padding: 2px 0 4px;
+      }
+      iframe {
+        border: 0;
+        background: #fff;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      /*
+       * Headless browsers clamp the real window to ~500px wide, so a genuine
+       * 320/390px viewport — and therefore a genuine `sm:`/`lg:` media-query
+       * evaluation — is only reachable inside an iframe.
+       *
+       * Hash syntax, comma-separated:  WxH[/tab][@scrollTop][!]
+       *   /presets   click that tab before capturing
+       *   @620       scroll the control panel down by that many px
+       *   !          open the export dropdown
+       * e.g. #390x760/presets,390x760@620,390x760!
+       */
+      const specs = (location.hash.slice(1) || '320x760,390x760,430x760').split(',')
+      const frames = []
+
+      for (const spec of specs) {
+        const m = /^(\d+)x(\d+)(?:\/(\w+))?(?:@(\d+))?(!)?$/.exec(spec)
+        if (!m) continue
+        const [, w, h, tab, scroll, menu] = m
+        const fig = document.createElement('figure')
+        fig.innerHTML =
+          `<figcaption>${w}×${h}${tab ? ' /' + tab : ''}${scroll ? ' @' + scroll : ''}${menu ? ' menu' : ''}</figcaption>` +
+          `<iframe src="/" width="${w}" height="${h}" loading="eager"></iframe>`
+        document.body.appendChild(fig)
+        frames.push({ frame: fig.querySelector('iframe'), tab, scroll, menu })
+      }
+
+      /*
+       * Drive each frame once its app has actually mounted. Polling rather than a
+       * fixed timeout because `--virtual-time-budget` fast-forwards timers: a
+       * `setTimeout(2200)` can fire long before the iframe's modules have even
+       * been fetched, which silently no-ops every click.
+       */
+      const ready = (frame) => frame.contentDocument?.querySelector('aside') ?? null
+
+      const drive = ({ frame, tab, scroll, menu }) =>
+        new Promise((resolve) => {
+          let tries = 0
+          const tick = () => {
+            const aside = ready(frame)
+            if (!aside) {
+              if (++tries > 400) return resolve('timeout')
+              return requestAnimationFrame(tick)
+            }
+            const doc = frame.contentDocument
+            if (tab) {
+              const label = tab[0].toUpperCase() + tab.slice(1)
+              doc
+                .querySelectorAll(`nav[aria-label="Sections"] button[aria-label="${label}"]`)
+                .forEach((b) => b.click())
+            }
+            if (menu) doc.querySelector('button[aria-label="More export options"]')?.click()
+            // Scroll last: switching tabs changes the panel's height.
+            requestAnimationFrame(() => {
+              if (scroll) aside.scrollTop = Number(scroll)
+              if (!menu) return resolve('ok')
+              // The menu springs in, so wait for it to actually be opaque before
+              // declaring the frame ready to capture.
+              let waits = 0
+              const settle = () => {
+                const el = doc.querySelector('[role="menu"]')
+                const opacity = el ? Number(getComputedStyle(el).opacity) : 0
+                if (el && opacity > 0.98) {
+                  const b = el.getBoundingClientRect()
+                  const cap = frame.parentElement.querySelector('figcaption')
+                  cap.textContent += ` menu@${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`
+                  return resolve('ok')
+                }
+                if (++waits > 400) {
+                  frame.parentElement.querySelector('figcaption').textContent +=
+                    ` menu-stuck op=${opacity}`
+                  return resolve('menu-stuck')
+                }
+                requestAnimationFrame(settle)
+              }
+              settle()
+            })
+          }
+          tick()
+        })
+
+      Promise.all(frames.map(drive)).then((r) => {
+        document.title = 'ready:' + r.join(',')
+      })
+    </script>
+  </body>
+</html>

@@ -7,14 +7,14 @@
  * stopped being a problem. The long exhale in the motion does the rest.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const relieved = {
-  id: "relieved",
-  label: "Relieved",
+  id: 'relieved',
+  label: 'Relieved',
   face: {
-    left: { op: 0, cy: 102, arc: { op: 1, w: 16, bend: -2, thick: 4.4 } },
-    right: { op: 0, cy: 102, arc: { op: 1, w: 16, bend: -2, thick: 4.4 } },
+    left: { op: 0, cy: 102, arc: { op: 1, w: 15.5, bend: -3.5, thick: 4.6 } },
+    right: { op: 0, cy: 102, arc: { op: 1, w: 15.5, bend: -3.5, thick: 4.6 } },
     sweat: { op: 0.55 },
   },
   // The deepest breath in the set — a long slow exhale, settling downward.
@@ -26,4 +26,4 @@ export const relieved = {
     sag: 1.5,
     blinkEvery: 5,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

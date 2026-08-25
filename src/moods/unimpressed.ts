@@ -6,11 +6,11 @@
  * Unlike Bored, it is still looking right at you.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const unimpressed = {
-  id: "unimpressed",
-  label: "Unimpressed",
+  id: 'unimpressed',
+  label: 'Unimpressed',
   face: {
     left: { rx: 10.2, ry: 3.6, sq: 3.6, cy: 100 },
     right: { rx: 10.2, ry: 3.6, sq: 3.6, cy: 100 },
@@ -23,4 +23,4 @@ export const unimpressed = {
     wobble: 0.35,
     blinkEvery: 5.2,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

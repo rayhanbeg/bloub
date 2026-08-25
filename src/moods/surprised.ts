@@ -7,11 +7,11 @@
  * ring is the most legible shock signal available without a mouth.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const surprised = {
-  id: "surprised",
-  label: "Surprised",
+  id: 'surprised',
+  label: 'Surprised',
   face: {
     left: { rx: 11.8, ry: 11.8, sq: 2, cy: 100, pupil: { op: 1, r: 5.6 } },
     right: { rx: 11.8, ry: 11.8, sq: 2, cy: 100, pupil: { op: 1, r: 5.6 } },
@@ -26,4 +26,4 @@ export const surprised = {
     blinkEvery: 5.4,
     blinkJitter: 2,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

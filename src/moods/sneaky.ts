@@ -5,11 +5,11 @@
  * deliberately uneven. A clean mirrored V is a plan; a lopsided one is a doubt.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const sneaky = {
-  id: "sneaky",
-  label: "Sneaky",
+  id: 'sneaky',
+  label: 'Sneaky',
   face: {
     left: { rx: 10.2, ry: 3.8, sq: 3.3, cy: 102, rot: 14 },
     right: { rx: 10.2, ry: 3.8, sq: 3.3, cy: 102, rot: -14 },
@@ -25,4 +25,4 @@ export const sneaky = {
     gazeXHarmonic: 1,
     blinkEvery: 4.8,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

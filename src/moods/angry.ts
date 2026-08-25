@@ -7,27 +7,27 @@
  * direction, which keeps the whole face pointing at one thing.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const angry = {
-  id: "angry",
-  label: "Angry",
+  id: 'angry',
+  label: 'Angry',
   face: {
     left: {
       rx: 10.2,
-      ry: 4,
+      ry: 3.6,
       sq: 3,
       cy: 100,
-      rot: 22,
-      brow: { op: 1, dy: -19, w: 12.5, bend: -2, thick: 4.8, rot: 21 },
+      rot: 24,
+      brow: { op: 1, dy: -21, w: 12.5, bend: -2, thick: 4.8, rot: 24 },
     },
     right: {
       rx: 10.2,
-      ry: 4,
+      ry: 3.6,
       sq: 3,
       cy: 100,
-      rot: -22,
-      brow: { op: 1, dy: -19, w: 12.5, bend: -2, thick: 4.8, rot: -21 },
+      rot: -24,
+      brow: { op: 1, dy: -21, w: 12.5, bend: -2, thick: 4.8, rot: -24 },
     },
   },
   // Sharp shallow breaths, body held compressed, and the fastest vibration in the
@@ -42,4 +42,4 @@ export const angry = {
     trembleHarmonic: 30,
     blinkEvery: 3.2,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

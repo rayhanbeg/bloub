@@ -7,23 +7,23 @@
  * above supply the anger the eyes can no longer show.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const frustrated = {
-  id: "frustrated",
-  label: "Frustrated",
+  id: 'frustrated',
+  label: 'Frustrated',
   face: {
     left: {
       op: 0,
       cy: 101,
-      arc: { op: 1, w: 13, bend: 0, thick: 6.6, rot: 6 },
-      brow: { op: 1, dy: -13, w: 12, bend: -1.5, thick: 4.6, rot: 17 },
+      arc: { op: 1, w: 13, bend: 0, thick: 7, rot: 3 },
+      brow: { op: 1, dy: -14, w: 12, bend: -1.5, thick: 4.6, rot: 20 },
     },
     right: {
       op: 0,
       cy: 101,
-      arc: { op: 1, w: 13, bend: 0, thick: 6.6, rot: -6 },
-      brow: { op: 1, dy: -13, w: 12, bend: -1.5, thick: 4.6, rot: -17 },
+      arc: { op: 1, w: 13, bend: 0, thick: 7, rot: -3 },
+      brow: { op: 1, dy: -14, w: 12, bend: -1.5, thick: 4.6, rot: -20 },
     },
     sweat: { op: 0.6 },
   },
@@ -38,4 +38,4 @@ export const frustrated = {
     trembleHarmonic: 24,
     blinkEvery: 3.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

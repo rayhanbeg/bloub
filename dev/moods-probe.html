@@ -5,6 +5,10 @@
       id="grid"
       style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;padding:14px"
     ></div>
+    <div
+      id="colours"
+      style="display:grid;grid-template-columns:repeat(11,1fr);gap:8px;padding:0 14px 14px"
+    ></div>
     <div id="err" style="color:#dc2626;padding:16px;white-space:pre-wrap"></div>
     <script type="module">
       const err = document.getElementById('err')
@@ -12,12 +16,13 @@
         const { MOODS } = await import('/src/moods/index.ts')
         const { generateBlobSvg } = await import('/src/core/generateBlob.ts')
         const grid = document.getElementById('grid')
+        const card =
+          'background:#fff;border:1px solid #e4e4e7;border-radius:14px;padding:6px;text-align:center'
         // A neutral mid colour so white eyes and dark eyes both show; render the
         // face only (no shape) so nothing but the eyes is being judged.
         for (const m of MOODS) {
           const cell = document.createElement('div')
-          cell.style.cssText =
-            'background:#fff;border:1px solid #e4e4e7;border-radius:14px;padding:6px;text-align:center'
+          cell.style.cssText = card
           const svg = generateBlobSvg(
             { shape: 'circle', mood: m.id, color: '#6366f1' },
             { size: 150 },
@@ -25,6 +30,20 @@
           cell.innerHTML =
             svg + `<div style="margin-top:2px;font-weight:600">${m.label}</div>`
           grid.appendChild(cell)
+        }
+        // Contrast check: the eyes must never be black, and must stay legible
+        // on the lightest swatches.
+        const colours = document.getElementById('colours')
+        for (const c of [
+          '#111113', '#6366f1', '#e5484d', '#8e4ec6', '#0091ff', '#12a594',
+          '#30a46c', '#ffb224', '#bdee63', '#e8e4dd', '#ffffff',
+        ]) {
+          const cell = document.createElement('div')
+          cell.style.cssText = card
+          cell.innerHTML =
+            generateBlobSvg({ shape: 'pebble', mood: 'happy', color: c }, { size: 120 }) +
+            `<div style="margin-top:2px;font-weight:600">${c}</div>`
+          colours.appendChild(cell)
         }
         document.title = 'ready:' + MOODS.length
       } catch (e) {

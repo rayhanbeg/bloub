@@ -1,34 +1,36 @@
 /**
- * Star-struck — huge round eyes with a big off-centre pupil, leaving a bright
- * crescent of white across the top outer edge of each one.
+ * Star-struck — big soft eyes with a small pupil high and toward the nose, over
+ * the strongest blush of any wide-eyed mood: gazing up at someone adoringly.
  *
- * That crescent is the gleam, and it's the only place in the app where the pupil
- * is used as a *highlight* rather than as a pupil. Because the hole is punched
- * in the body colour, pushing it down and inward doesn't read as looking
- * down-and-in — it reads as light catching the top of the eye.
+ * A large hole was the obvious first idea here and it was wrong — it ate the eye
+ * and left a thin ring that read as shock, not admiration. What actually sells
+ * adoration is *how much white is left*: a small pupil pushed up and inward
+ * leaves a broad bright field under and around it, which is the look of someone
+ * staring up at a hero. Surprised keeps its hole big and dead centre; Scared
+ * keeps its small pupil high but adds cold sweat and much narrower eyes.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const starstruck = {
-  id: "starstruck",
-  label: "Star-struck",
+  id: 'starstruck',
+  label: 'Star-struck',
   face: {
     left: {
-      rx: 11.6,
-      ry: 12.8,
-      sq: 2,
-      cy: 99,
-      pupil: { op: 1, dx: 2.4, dy: 2.8, r: 7.2 },
+      rx: 12,
+      ry: 14.6,
+      sq: 2.1,
+      cy: 98,
+      pupil: { op: 1, dx: 2.6, dy: -1.8, r: 4.4 },
     },
     right: {
-      rx: 11.6,
-      ry: 12.8,
-      sq: 2,
-      cy: 99,
-      pupil: { op: 1, dx: -2.4, dy: 2.8, r: 7.2 },
+      rx: 12,
+      ry: 14.6,
+      sq: 2.1,
+      cy: 98,
+      pupil: { op: 1, dx: -2.6, dy: -1.8, r: 4.4 },
     },
-    blush: 0.9,
+    blush: 0.95,
   },
   // Bouncing on the spot and swaying — starry rather than merely surprised.
   motion: {
@@ -40,4 +42,4 @@ export const starstruck = {
     hop: 4,
     blinkEvery: 4.6,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

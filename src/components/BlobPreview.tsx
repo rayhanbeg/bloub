@@ -17,7 +17,7 @@
  * what lands in an exported file identical.
  */
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import { curvePath, ellipsePath, featureColor, superellipsePath } from '../core/geometry'
@@ -34,6 +34,7 @@ import { VIEWBOX } from '../core/generateBlob'
 import { scope, useFaceMotion } from '../animation/useFaceMotion'
 import { useShapeMorph } from '../animation/useShapeMorph'
 import { useIdleMotion } from '../animation/useIdleMotion'
+import { cn } from '../utils/cn'
 import type { FaceGetter, FaceValues } from '../animation/useFaceMotion'
 import type { BlobConfig } from '../core/types'
 
@@ -188,7 +189,14 @@ function Garnishes({ values, features }: { values: FaceValues; features: MotionV
 
 export interface BlobPreviewProps {
   config: BlobConfig
-  size?: number
+  /**
+   * Rendered size. A number is CSS pixels; a string is passed straight through,
+   * so `"100%"` lets a responsive wrapper own the sizing instead.
+   *
+   * TypeScript note: `number | string` is a *union type* — the value may be
+   * either, and anything else (say `true`) is rejected at the call site.
+   */
+  size?: number | string
   className?: string
   /** Pause the idle loop (used while capturing frames for export). */
   idle?: boolean
@@ -222,20 +230,42 @@ export function BlobPreview({ config, size = 400, className, idle = true }: Blob
     },
   )
 
+  /**
+   * …written to the group's `transform` attribute by hand.
+   *
+   * This cannot be `<motion.g transform={faceFit}>`. Framer Motion treats
+   * `transform` as one of the transform properties it composes itself from
+   * `x`/`y`/`scale`, so a `MotionValue<string>` handed to it was stringified into
+   * the attribute as `[object Object]` — which the browser then discarded. The
+   * face lost its per-shape offset and scale in the preview while every export
+   * applied it, so the two disagreed by a couple of units. Setting the attribute
+   * directly is the same approach the idle group already uses via `bodyRef`.
+   */
+  const faceRef = useRef<SVGGElement>(null)
+  useLayoutEffect(() => {
+    const apply = (t: string) => faceRef.current?.setAttribute('transform', t)
+    apply(faceFit.get())
+    // `on('change')` returns its own unsubscribe function, which is what React
+    // wants back from an effect.
+    return faceFit.on('change', apply)
+  }, [faceFit])
+
   return (
     <svg
       width={size}
       height={size}
       viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
       fill="none"
-      className={className}
+      // `block` so a `size="100%"` svg fills its wrapper exactly, with no inline
+      // descender gap underneath it.
+      className={cn('block', className)}
       aria-label={`${config.mood} blob`}
       role="img"
     >
       {/* Idle motion writes its transform to this group. */}
       <g ref={bodyRef}>
         <motion.path d={shape.d} fill={bodyColor} />
-        <motion.g transform={faceFit}>
+        <g ref={faceRef}>
           <Eye
             get={scope(values, 'left')}
             features={featuresColor}
@@ -253,7 +283,7 @@ export function BlobPreview({ config, size = 400, className, idle = true }: Blob
             gazeY={gazeY}
           />
           <Garnishes values={values} features={featuresColor} />
-        </motion.g>
+        </g>
       </g>
     </svg>
   )

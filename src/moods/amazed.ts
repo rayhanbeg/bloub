@@ -6,25 +6,25 @@
  * Amazed goes *tall* and raises its brows. Awe, looking up at something big.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const amazed = {
-  id: "amazed",
-  label: "Amazed",
+  id: 'amazed',
+  label: 'Amazed',
   face: {
     left: {
-      rx: 11.6,
-      ry: 20,
+      rx: 12,
+      ry: 20.4,
       sq: 2.2,
       cy: 101,
-      brow: { op: 1, dy: -29, w: 12, bend: -6, thick: 4 },
+      brow: { op: 1, dy: -30, w: 12.5, bend: -6.5, thick: 4.4 },
     },
     right: {
-      rx: 11.6,
-      ry: 20,
+      rx: 12,
+      ry: 20.4,
       sq: 2.2,
       cy: 101,
-      brow: { op: 1, dy: -29, w: 12, bend: -6, thick: 4 },
+      brow: { op: 1, dy: -30, w: 12.5, bend: -6.5, thick: 4.4 },
     },
   },
   // Held still and lifted, with the gaze drifting slowly upward.
@@ -37,4 +37,4 @@ export const amazed = {
     gazeY: -1.6,
     blinkEvery: 5.6,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

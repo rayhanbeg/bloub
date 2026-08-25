@@ -1,5 +1,9 @@
 /**
- * ColourPicker — a 6-column grid of large round swatches plus a custom well.
+ * ColourPicker — a reflowing grid of large round swatches plus a custom well.
+ *
+ * Same `auto-fill` trick as the tile grids: the swatches are a fixed size and the
+ * *cells* stretch, so on a phone you get fewer, roomier columns instead of a row
+ * of dots too small to hit.
  */
 
 import { useId } from 'react'
@@ -11,6 +15,10 @@ import { cn } from '../utils/cn'
 
 const isPreset = (hex: string): boolean =>
   PALETTE.some((s) => s.hex.toLowerCase() === hex.toLowerCase())
+
+/** Swatch size, mobile then desktop. Shared by the presets and the custom well
+ *  so the ring lines up on both. */
+const SWATCH = 'h-9 w-9 lg:h-8 lg:w-8'
 
 /** The dark hairline that marks the active swatch, with a gap so the colour
  *  underneath is still legible. Shared `layoutId` so it slides between swatches. */
@@ -31,7 +39,7 @@ export function ColourPicker() {
 
   return (
     <Section title="Colour">
-      <div className="grid grid-cols-6 gap-x-2 gap-y-3 pt-0.5">
+      <div className="grid gap-x-2 gap-y-3 pt-0.5 [--swatch-min:44px] [grid-template-columns:repeat(auto-fill,minmax(var(--swatch-min),1fr))] lg:[--swatch-min:36px]">
         {PALETTE.map((swatch) => {
           const selected = swatch.hex.toLowerCase() === config.color.toLowerCase()
           return (
@@ -42,12 +50,16 @@ export function ColourPicker() {
               aria-label={swatch.label}
               aria-pressed={selected}
               onClick={() => setColor(swatch.hex)}
-              className="group relative mx-auto flex h-8 w-8 items-center justify-center rounded-full outline-none"
+              className={cn(
+                'group relative mx-auto flex items-center justify-center rounded-full outline-none',
+                SWATCH,
+              )}
             >
               {selected && <SwatchRing />}
               <span
                 className={cn(
-                  'block h-8 w-8 rounded-full ring-1 ring-inset ring-black/[0.08]',
+                  'block rounded-full ring-1 ring-inset ring-black/[0.08]',
+                  SWATCH,
                   'transition-transform duration-200 ease-out',
                   selected ? 'scale-100' : 'group-hover:scale-[1.08] group-active:scale-95',
                 )}
@@ -62,12 +74,16 @@ export function ColourPicker() {
         <label
           htmlFor={inputId}
           title="Custom colour"
-          className="group relative mx-auto flex h-8 w-8 cursor-pointer items-center justify-center rounded-full outline-none"
+          className={cn(
+            'group relative mx-auto flex cursor-pointer items-center justify-center rounded-full outline-none',
+            SWATCH,
+          )}
         >
           {custom && <SwatchRing />}
           <span
             className={cn(
-              'pointer-events-none flex h-8 w-8 items-center justify-center rounded-full',
+              'pointer-events-none flex items-center justify-center rounded-full',
+              SWATCH,
               'transition-transform duration-200 ease-out',
               custom
                 ? 'ring-1 ring-inset ring-black/[0.08]'
@@ -76,7 +92,7 @@ export function ColourPicker() {
             style={custom ? { backgroundColor: config.color } : undefined}
           >
             {!custom && (
-              <svg viewBox="0 0 14 14" className="h-3 w-3 text-zinc-400">
+              <svg viewBox="0 0 14 14" className="h-3.5 w-3.5 text-zinc-400 lg:h-3 lg:w-3">
                 <path
                   d="M7 2.5v9M2.5 7h9"
                   stroke="currentColor"

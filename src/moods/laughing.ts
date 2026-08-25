@@ -8,11 +8,11 @@
  * time, the switch reads as a squint rather than a swap.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const laughing = {
-  id: "laughing",
-  label: "Laughing",
+  id: 'laughing',
+  label: 'Laughing',
   face: {
     left: { op: 0, cy: 96, arc: { op: 1, w: 12, bend: -11.5, thick: 6.2 } },
     right: { op: 0, cy: 96, arc: { op: 1, w: 12, bend: -11.5, thick: 6.2 } },
@@ -28,4 +28,4 @@ export const laughing = {
     trembleHarmonic: 16,
     blinkEvery: 3,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

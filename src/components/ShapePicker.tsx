@@ -1,6 +1,6 @@
 /**
- * ShapePicker — 4-column grid of body silhouettes, each wearing the neutral face
- * so the grid reads as a row of characters rather than abstract blobs.
+ * ShapePicker — body silhouettes, each wearing the neutral face so the grid reads
+ * as a row of characters rather than abstract blobs.
  */
 
 import { useMemo } from 'react'
@@ -35,7 +35,7 @@ export function ShapePicker() {
 
   return (
     <Section title="Shape">
-      <Grid cols={4}>
+      <Grid className="[--tile-min:76px] lg:[--tile-min:62px]">
         {SHAPES.map((shape) => (
           <Tile
             key={shape.id}

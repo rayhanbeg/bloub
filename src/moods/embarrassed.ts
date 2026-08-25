@@ -7,11 +7,11 @@
  * is the face wishing it were somewhere else.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const embarrassed = {
-  id: "embarrassed",
-  label: "Embarrassed",
+  id: 'embarrassed',
+  label: 'Embarrassed',
   face: {
     left: { op: 0, cy: 104, arc: { op: 1, w: 11.5, bend: -3.5, thick: 5.8 } },
     right: { op: 0, cy: 104, arc: { op: 1, w: 11.5, bend: -3.5, thick: 5.8 } },
@@ -30,4 +30,4 @@ export const embarrassed = {
     trembleHarmonic: 24,
     blinkEvery: 3,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

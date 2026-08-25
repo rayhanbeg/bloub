@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <body style="margin:0;background:#f4f4f5;font:13px Inter,system-ui,sans-serif;color:#3f3f46">
+    <div
+      id="grid"
+      style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px"
+    ></div>
+    <div id="err" style="color:#dc2626;padding:16px;white-space:pre-wrap"></div>
+    <script type="module">
+      const err = document.getElementById('err')
+      try {
+        const { getMood } = await import('/src/moods/index.ts')
+        const { generateBlobSvg } = await import('/src/core/generateBlob.ts')
+        const grid = document.getElementById('grid')
+        // Moods whose detail (pupils, gleams, small tilts) can't be judged at
+        // thumbnail size.
+        const ids = (location.hash.slice(1) || 'starstruck,surprised,suspicious,mischievous,nervous,scared,dizzy,daydreaming,melancholic,sad')
+          .split(',')
+        for (const id of ids) {
+          const cell = document.createElement('div')
+          cell.style.cssText =
+            'background:#fff;border:1px solid #e4e4e7;border-radius:16px;padding:8px;text-align:center'
+          cell.innerHTML =
+            generateBlobSvg({ shape: 'circle', mood: id, color: '#6366f1' }, { size: 280 }) +
+            `<div style="font-weight:600">${getMood(id).label}</div>`
+          grid.appendChild(cell)
+        }
+        document.title = 'ready:' + ids.length
+      } catch (e) {
+        err.textContent = 'ERROR: ' + (e && (e.stack || e.message))
+        document.title = 'error'
+      }
+    </script>
+  </body>
+</html>

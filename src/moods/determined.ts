@@ -6,11 +6,11 @@
  * furrowed. Braced for something rather than mad at it.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const determined = {
-  id: "determined",
-  label: "Determined",
+  id: 'determined',
+  label: 'Determined',
   face: {
     left: {
       rx: 10.4,
@@ -38,4 +38,4 @@ export const determined = {
     squash: 0.985,
     blinkEvery: 4.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

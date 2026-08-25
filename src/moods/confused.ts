@@ -7,15 +7,15 @@
  * identical eyes; this mismatches size, height and rotation at once.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const confused = {
-  id: "confused",
-  label: "Confused",
+  id: 'confused',
+  label: 'Confused',
   face: {
-    left: { rx: 8.2, ry: 11.6, sq: 2.8, cy: 105, rot: -6 },
-    right: { rx: 11.2, ry: 18.8, sq: 2.4, cy: 97, rot: 4 },
+    left: { rx: 7.6, ry: 9.8, sq: 2.8, cy: 106, rot: -8 },
+    right: { rx: 11.4, ry: 19.6, sq: 2.4, cy: 96, rot: 5 },
   },
   // An off-kilter sway, as if hunting for an angle that makes sense.
   motion: { loopPeriod: 4.4, wobble: 1.2, lean: 4, tilt: 2.5, blinkEvery: 3 },
-} satisfies MoodDef;
+} satisfies MoodDef

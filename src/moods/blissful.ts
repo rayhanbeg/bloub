@@ -6,14 +6,14 @@
  * relaxed. Laughing is thin and deeply bent; this is the exact opposite.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const blissful = {
-  id: "blissful",
-  label: "Blissful",
+  id: 'blissful',
+  label: 'Blissful',
   face: {
-    left: { op: 0, cy: 101, arc: { op: 1, w: 17, bend: -3.5, thick: 7.6 } },
-    right: { op: 0, cy: 101, arc: { op: 1, w: 17, bend: -3.5, thick: 7.6 } },
+    left: { op: 0, cy: 101, arc: { op: 1, w: 15.5, bend: -5, thick: 7.2 } },
+    right: { op: 0, cy: 101, arc: { op: 1, w: 15.5, bend: -5, thick: 7.2 } },
     blush: 0.85,
   },
   // Almost the slowest loop in the set, floating very slightly upward.
@@ -25,4 +25,4 @@ export const blissful = {
     sag: -1,
     blinkEvery: 6,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

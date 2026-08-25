@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>layout probe</title>
+    <style>
+      /* Same host page as the real app, plus a readout pinned over it. */
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      #readout {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 9999;
+        background: #fef08a;
+        color: #111;
+        font: 10px/1.35 ui-monospace, monospace;
+        padding: 4px 6px;
+        white-space: pre;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <pre id="readout">measuring…</pre>
+    <script type="module">
+      import '/src/index.css'
+      import React from 'react'
+      import { createRoot } from 'react-dom/client'
+      const { default: App } = await import('/src/App.tsx')
+      createRoot(document.getElementById('root')).render(React.createElement(App))
+
+      const r = (el) => {
+        if (!el) return 'missing'
+        const b = el.getBoundingClientRect()
+        return `${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`
+      }
+
+      setTimeout(() => {
+        const doc = document.documentElement
+        const nav = document.querySelectorAll('nav[aria-label="Sections"]')
+        const svg = document.querySelector('main svg[role="img"]')
+        const aside = document.querySelector('aside')
+        const grids = document.querySelectorAll('aside .grid')
+        const lines = [
+          `viewport ${window.innerWidth}x${window.innerHeight}`,
+          `doc scrollW ${doc.scrollWidth} clientW ${doc.clientWidth}`,
+          `body scrollW ${document.body.scrollWidth}`,
+          `main     ${r(document.querySelector('main'))}`,
+          `preview  ${r(svg)}`,
+          `aside    ${r(aside)}`,
+          `aside sW ${aside ? aside.scrollWidth : '-'} cW ${aside ? aside.clientWidth : '-'}`,
+          `navs ${nav.length}`,
+        ]
+        nav.forEach((n, i) => {
+          lines.push(`nav[${i}] ${r(n)} disp=${getComputedStyle(n).display} sW=${n.scrollWidth}`)
+        })
+        grids.forEach((g, i) => {
+          const cols = getComputedStyle(g).gridTemplateColumns.split(' ').length
+          lines.push(`grid[${i}] w=${Math.round(g.getBoundingClientRect().width)} cols=${cols}`)
+        })
+        document.getElementById('readout').textContent = lines.join('\n')
+        document.title = 'ready'
+      }, 2500)
+    </script>
+  </body>
+</html>

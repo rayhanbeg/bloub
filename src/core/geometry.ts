@@ -66,7 +66,10 @@ export function closedSmoothPath(points: Point[], tension = 1): string {
  * opacity/offset bookkeeping, plus an absolute centre" — the exact inputs the
  * path maths needs, and it stays in sync if CurveSpec changes.
  */
-export type CurveGeom = Omit<CurveSpec, 'op' | 'dx' | 'dy'> & { cx: number; cy: number }
+export type CurveGeom = Omit<CurveSpec, 'op' | 'dx' | 'dy'> & {
+  cx: number
+  cy: number
+}
 
 /**
  * Build the path for a curve element — the single primitive behind brows and
@@ -209,13 +212,83 @@ export function luminance(hex: string): number {
 }
 
 /**
- * Pick the eye colour for a given blob colour: light blobs (amber, lime,
- * bone) get near-black features, everything else gets white. Single place the
- * app decides contrast, so the face is always legible.
+ * `[r, g, b]` in 0–255 → `[h, s, l]`, hue in degrees and the rest in 0–1.
+ *
+ * TypeScript note: `[number, number, number]` is a *tuple* — an array whose
+ * length and per-slot types are both fixed. It's what lets `const [h, s] = ...`
+ * below know that `h` and `s` are numbers rather than `number | undefined`.
+ */
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const [rn, gn, bn] = [r / 255, g / 255, b / 255]
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  const l = (max + min) / 2
+  const d = max - min
+  if (d === 0) return [0, 0, l] // grey: hue is meaningless
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h =
+    max === rn
+      ? ((gn - bn) / d + (gn < bn ? 6 : 0)) * 60
+      : max === gn
+        ? ((bn - rn) / d + 2) * 60
+        : ((rn - gn) / d + 4) * 60
+  return [h, s, l]
+}
+
+/** `[h, s, l]` → `#rrggbb`. */
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const hp = ((((h % 360) + 360) % 360) / 60) % 6
+  const x = c * (1 - Math.abs((hp % 2) - 1))
+  const rgb: [number, number, number] =
+    hp < 1
+      ? [c, x, 0]
+      : hp < 2
+        ? [x, c, 0]
+        : hp < 3
+          ? [0, c, x]
+          : hp < 4
+            ? [0, x, c]
+            : hp < 5
+              ? [x, 0, c]
+              : [c, 0, x]
+  const m = l - c / 2
+  return (
+    '#' +
+    rgb
+      .map((v) =>
+        Math.round(Math.min(Math.max(v + m, 0), 1) * 255)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')
+  )
+}
+
+/** How the eyes are tinted on a body too light to carry white ones. */
+const INK_LIGHTNESS = 0.31
+const INK_MIN_SATURATION = 0.52
+/** Eyes for a light body with no hue of its own — white, bone, grey. A muted
+ *  indigo rather than a grey, so it still reads as ink and never as black. */
+const NEUTRAL_INK = '#4f4b63'
+
+/**
+ * Pick the eye colour for a given blob colour. Single place the app decides
+ * contrast, so the face is always legible.
+ *
+ * **The eyes are never black.** Dark bodies get plain white; light ones (amber,
+ * lime, bone) get a deep, saturated tint of *their own hue* — amber eyes on an
+ * amber blob, olive on lime. Black features on a coloured body look like a
+ * sticker stuck on top of it, where a tint of the body's own hue reads as the
+ * same creature in shadow, which is both softer and much cuter.
  *
  * The 0.46 threshold is tuned so mid-bright warm hues like amber land on the
- * dark side — white on amber is technically readable but looks washed out.
+ * tinted side — white on amber is technically readable but looks washed out.
  */
 export function featureColor(blobColor: string): string {
-  return luminance(blobColor) > 0.46 ? '#111113' : '#ffffff'
+  if (luminance(blobColor) <= 0.46) return '#ffffff'
+  const [h, s] = rgbToHsl(...hexToRgb(blobColor))
+  // A near-grey body has no hue worth deepening; tinting it would invent one.
+  if (s < 0.08) return NEUTRAL_INK
+  return hslToHex(h, Math.max(s, INK_MIN_SATURATION), INK_LIGHTNESS)
 }

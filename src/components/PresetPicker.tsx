@@ -1,8 +1,9 @@
 /**
- * PresetPicker — curated shape · mood · colour combinations, three to a row.
+ * PresetPicker — curated shape · mood · colour combinations.
  *
  * Bigger tiles than the shape and mood grids because a preset is a whole
  * finished blob rather than one ingredient, and it deserves to be seen as one.
+ * How many fit on a row is the grid's business, not this file's.
  */
 
 import { useMemo } from 'react'
@@ -39,14 +40,16 @@ export function PresetPicker() {
           type="button"
           onClick={shuffle}
           title="Shuffle"
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px] font-medium text-zinc-500 outline-none transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900"
+          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium text-zinc-500 outline-none transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 sm:px-2 sm:py-1"
         >
           <ShuffleIcon className="h-3.5 w-3.5" />
           Shuffle
         </button>
       }
     >
-      <Grid cols={3}>
+      {/* Wider minimum than the ingredient grids — a preset is a finished blob,
+          so it gets a bigger cell at every width. */}
+      <Grid className="[--tile-min:96px] lg:[--tile-min:80px]">
         {PRESETS.map((preset) => (
           <Tile
             key={preset.id}

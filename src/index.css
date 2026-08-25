@@ -26,6 +26,16 @@ body {
   font-feature-settings: 'cv11', 'ss01';
 }
 
+/* Touch behaviour. Removes the grey tap flash and, more importantly, the ~300ms
+   double-tap-zoom delay before a tap counts as a click — with 39 mood tiles that
+   delay is the difference between the picker feeling instant and feeling broken. */
+button,
+label,
+[role='switch'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 /* Thin, unobtrusive scrollbar for the control panel. */
 .scroll-slim {
   scrollbar-width: thin;

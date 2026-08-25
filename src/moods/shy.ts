@@ -1,19 +1,22 @@
 /**
- * Shy — small, narrow, *open* eyes sitting low, full blush, looking away.
+ * Shy — small, narrow, *open* eyes sitting low and drawn closer together, with
+ * the strongest blush in the set.
  *
- * Open eyes are the difference from Embarrassed, which screws them shut. Shy is
- * still willing to look — just not for long, hence the slow glance away and the
- * body drawing itself in a few percent smaller.
+ * Open eyes are the difference from Embarrassed, which screws them shut. What
+ * makes this timid rather than merely small is the narrowed gap: pulling the pair
+ * inward shrinks the face inside the body, and a face with room around it reads
+ * as young and unsure. Melancholic also moves its eyes, but *sideways* and much
+ * lower — drifting away rather than curling in.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const shy = {
-  id: "shy",
-  label: "Shy",
+  id: 'shy',
+  label: 'Shy',
   face: {
-    left: { rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
-    right: { rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
+    left: { cx: 81, rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
+    right: { cx: 119, rx: 7.8, ry: 13.4, sq: 2.6, cy: 103 },
     blush: 1,
   },
   // Drawn back and slightly smaller, with a slow look-away once per loop.
@@ -29,4 +32,4 @@ export const shy = {
     gazeBias: 1.2,
     blinkEvery: 3.6,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

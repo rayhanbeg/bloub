@@ -1,0 +1,213 @@
+<!doctype html>
+<!--
+  Preview ↔ export parity.
+
+  The whole architecture rests on one promise: what the preview draws is what the
+  export writes, because both come from the same pure generator and neither uses
+  an SVG `transform` on the face. This harness checks that promise the only way
+  that can't fool itself — by rasterising both and diffing pixels.
+
+  For every mood it mounts the real <BlobPreview> with the idle loop paused,
+  serialises the SVG the browser actually has in the DOM, and compares it against
+  `staticSvg()` at the same size. It also checks that the animated export derives
+  its ink from the same `featureColor()` as the static one across a range of body
+  colours — a colour regression is the one failure a geometry diff can't see.
+
+  Served by Vite in dev only; `dev/` is outside `public/` so it never ships.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { margin: 0; padding: 20px; font: 13px/1.5 ui-monospace, monospace; background: #fff; color: #111 }
+      h1 { font-size: 15px; margin: 0 0 14px }
+      table { border-collapse: collapse; width: 100%; max-width: 980px }
+      td, th { text-align: left; padding: 4px 10px; border-bottom: 1px solid #eee }
+      th { font-weight: 600; color: #666 }
+      .pass { color: #087443; font-weight: 700 }
+      .fail { color: #c62a2f; font-weight: 700 }
+      #stage { position: fixed; left: -9999px; top: 0 }
+      .worst { display: flex; gap: 12px; margin-top: 18px; align-items: flex-start }
+      .worst figure { margin: 0; font-size: 11px; color: #666 }
+    </style>
+  </head>
+  <body>
+    <h1 id="head">running…</h1>
+    <table>
+      <thead><tr><th style="width:230px">check</th><th style="width:52px"></th><th>detail</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="worst" id="worst"></div>
+    <div id="stage"></div>
+
+    <script type="module">
+      import { createElement } from 'react'
+      import { createRoot } from 'react-dom/client'
+      import { BlobPreview } from '/src/components/BlobPreview.tsx'
+      import { staticSvg, animatedSvg, DEFAULT_EXPORT_SETTINGS, loadSvgImage } from '/src/utils/export.ts'
+      import { MOODS } from '/src/moods/index.ts'
+
+      const SIZE = 256 // big enough to catch a sub-pixel geometry slip, small enough to run 39×
+      const rows = document.getElementById('rows')
+      let failures = 0
+
+      function report(name, ok, detail) {
+        if (!ok) failures++
+        const tr = document.createElement('tr')
+        tr.innerHTML =
+          `<td>${name}</td><td class="${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</td><td>${detail}</td>`
+        rows.appendChild(tr)
+      }
+
+      /** Rasterise SVG markup to a canvas at SIZE×SIZE. */
+      async function raster(markup) {
+        const img = await loadSvgImage(markup)
+        const c = document.createElement('canvas')
+        c.width = SIZE
+        c.height = SIZE
+        const ctx = c.getContext('2d')
+        ctx.drawImage(img, 0, 0, SIZE, SIZE)
+        return ctx.getImageData(0, 0, SIZE, SIZE)
+      }
+
+      /**
+       * Mean per-channel difference, 0–255. Composited over white first: both
+       * images are transparent outside the blob, and comparing premultiplied
+       * edge pixels would flag antialiasing that no viewer can see.
+       */
+      function diff(a, b) {
+        let total = 0
+        let worst = 0
+        for (let i = 0; i < a.data.length; i += 4) {
+          const aa = a.data[i + 3] / 255
+          const ba = b.data[i + 3] / 255
+          for (let ch = 0; ch < 3; ch++) {
+            const av = a.data[i + ch] * aa + 255 * (1 - aa)
+            const bv = b.data[i + ch] * ba + 255 * (1 - ba)
+            const d = Math.abs(av - bv)
+            total += d
+            if (d > worst) worst = d
+          }
+        }
+        return { mean: total / (a.data.length * 0.75), worst }
+      }
+
+      const root = createRoot(document.getElementById('stage'))
+      const settings = { ...DEFAULT_EXPORT_SETTINGS, size: SIZE, scale: 1 }
+      const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      /**
+       * Wait until the preview stops changing.
+       *
+       * Every face property is a spring, so a freshly mounted preview is still
+       * travelling for a few hundred milliseconds. Comparing before it lands
+       * measures the animation, not the geometry — which is why an earlier
+       * version of this probe reported a different "worst" mood on every run.
+       */
+      async function settled(selector, stableFrames = 4, maxFrames = 240) {
+        let last = ''
+        let stable = 0
+        for (let i = 0; i < maxFrames; i++) {
+          await new Promise((r) => requestAnimationFrame(r))
+          const el = document.querySelector(selector)
+          if (!el) continue
+          const now = new XMLSerializer().serializeToString(el)
+          stable = now === last ? stable + 1 : 0
+          last = now
+          if (stable >= stableFrames) return { markup: now, frames: i + 1 }
+        }
+        return { markup: last, frames: maxFrames, timedOut: true }
+      }
+
+      /* ---- every mood: preview DOM vs static export ---------------------- */
+      const results = []
+      let slowest = 0
+      for (const mood of MOODS) {
+        const config = { shape: 'pebble', mood: mood.id, color: '#111113' }
+        // Unmount first: rendering a new mood into a live preview would spring
+        // *from* the previous mood, and each mood needs to start from its own
+        // resting values. `idle: false` then freezes the loop at rest, which is
+        // the state the static export represents.
+        root.render(null)
+        await frame()
+        root.render(createElement(BlobPreview, { config, size: SIZE, idle: false }))
+        const { markup: previewMarkup, frames, timedOut } = await settled('#stage svg')
+        if (!previewMarkup) {
+          report(`${mood.id} · parity`, false, 'preview did not render an <svg>')
+          continue
+        }
+        if (timedOut) report(`${mood.id} · settle`, false, 'preview never stopped changing')
+        slowest = Math.max(slowest, frames)
+        const exportMarkup = staticSvg(config, settings)
+        const [a, b] = await Promise.all([raster(previewMarkup), raster(exportMarkup)])
+        results.push({ mood: mood.id, ...diff(a, b), previewMarkup, exportMarkup })
+      }
+
+      const worstMood = results.reduce((m, r) => (r.mean > m.mean ? r : m), results[0])
+      // Left on `window` so a failure can be dissected from a devtools console
+      // (or over CDP) without re-instrumenting this file.
+      window.__parity = results
+      const allClean = results.every((r) => r.mean < 0.5 && r.worst < 24)
+      report(
+        `all ${results.length} moods · preview pixels === export pixels`,
+        allClean,
+        `worst mood: ${worstMood.mood} (mean Δ ${worstMood.mean.toFixed(4)}/255, peak Δ ${worstMood.worst}) — ` +
+          `${results.filter((r) => r.mean < 0.01).length} of ${results.length} pixel-identical, slowest settle ${slowest} frames`,
+      )
+
+      // Root tags, so a size/viewBox difference is diagnosable from the report
+      // rather than by squinting at two images.
+      const rootTag = (m) => m.slice(0, m.indexOf('>') + 1).replace(/</g, '&lt;')
+      report(
+        'root elements',
+        true,
+        `preview: ${rootTag(worstMood.previewMarkup)}<br>export:&nbsp; ${rootTag(worstMood.exportMarkup)}`,
+      )
+
+      /* ---- ink colour: static and animated must agree -------------------- */
+      // featureColor() is the one thing an all-geometry diff can't see, and it
+      // was rewritten to stop producing black eyes. Both export paths must call it.
+      const inkOf = (markup) => {
+        const doc = new DOMParser().parseFromString(markup, 'image/svg+xml')
+        const fills = [...doc.querySelectorAll('[fill]')].map((n) => n.getAttribute('fill'))
+        return fills.filter((f) => f && f !== 'none')
+      }
+      const COLORS = ['#111113', '#000000', '#ffffff', '#f4f4f5', '#6366f1', '#ef4444', '#a1a1aa', '#22c55e']
+      const inkRows = []
+      let inkOk = true
+      for (const color of COLORS) {
+        const config = { shape: 'pebble', mood: 'happy', color }
+        const s = inkOf(staticSvg(config, settings))
+        const a = inkOf(animatedSvg(config, settings))
+        const same = s.join(',') === a.join(',')
+        const black = [...s, ...a].some((f) => /^#0{3,6}$/i.test(f) && f !== color)
+        if (!same || black) inkOk = false
+        inkRows.push(`${color}→[${[...new Set(s)].join(' ')}]${same ? '' : ' MISMATCH'}${black ? ' BLACK-INK' : ''}`)
+      }
+      report(
+        'static vs animated · ink colour',
+        inkOk,
+        inkRows.join('   '),
+      )
+
+      /* ---- show the worst offender so a regression is visible ------------ */
+      const box = document.getElementById('worst')
+      for (const [label, markup] of [
+        [`preview · ${worstMood.mood}`, worstMood.previewMarkup],
+        [`export · ${worstMood.mood}`, worstMood.exportMarkup],
+      ]) {
+        const fig = document.createElement('figure')
+        fig.innerHTML = `<figcaption>${label}</figcaption>`
+        const img = new Image(180, 180)
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup)
+        fig.appendChild(img)
+        box.appendChild(fig)
+      }
+
+      const head = document.getElementById('head')
+      head.textContent = failures === 0 ? 'PREVIEW AND EXPORT AGREE' : `${failures} CHECK(S) FAILED`
+      head.className = failures === 0 ? 'pass' : 'fail'
+      document.title = failures === 0 ? 'PASS' : 'FAIL'
+    </script>
+  </body>
+</html>

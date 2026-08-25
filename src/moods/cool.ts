@@ -7,11 +7,11 @@
  * rather than deadpan. Unimpressed is this same idea with the height removed.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const cool = {
-  id: "cool",
-  label: "Cool",
+  id: 'cool',
+  label: 'Cool',
   face: {
     left: { rx: 12, ry: 7.4, sq: 3.1, cy: 103 },
     right: { rx: 12, ry: 7.4, sq: 3.1, cy: 103 },
@@ -26,4 +26,4 @@ export const cool = {
     blinkEvery: 5.8,
     blinkDuration: 0.2,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

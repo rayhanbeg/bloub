@@ -6,11 +6,11 @@
  * nothing else uses, and the giddy sway sells it without one.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const lovestruck = {
-  id: "lovestruck",
-  label: "Love-struck",
+  id: 'lovestruck',
+  label: 'Love-struck',
   face: {
     left: {
       op: 0,
@@ -34,4 +34,4 @@ export const lovestruck = {
     sag: -1.5,
     blinkEvery: 3.8,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

@@ -5,10 +5,10 @@
  * Every other mood file describes only what it changes from here.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const neutral = {
-  id: "neutral",
-  label: "Neutral",
+  id: 'neutral',
+  label: 'Neutral',
   face: {},
-} satisfies MoodDef;
+} satisfies MoodDef

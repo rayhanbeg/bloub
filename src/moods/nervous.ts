@@ -7,25 +7,25 @@
  * blinks more often than any other mood. Watchfulness with no confidence in it.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const nervous = {
-  id: "nervous",
-  label: "Nervous",
+  id: 'nervous',
+  label: 'Nervous',
   face: {
     left: {
-      rx: 9.4,
-      ry: 14.8,
+      rx: 9.8,
+      ry: 15.2,
       sq: 2.5,
       cy: 100,
-      pupil: { op: 1, dx: 3.6, dy: 0.8, r: 3.6 },
+      pupil: { op: 1, dx: 3.4, dy: 0.8, r: 3.4 },
     },
     right: {
-      rx: 9.4,
-      ry: 13,
+      rx: 9.8,
+      ry: 13.4,
       sq: 2.5,
       cy: 101,
-      pupil: { op: 1, dx: 3.6, dy: 0.8, r: 3.6 },
+      pupil: { op: 1, dx: 3.4, dy: 0.8, r: 3.4 },
     },
     sweat: { op: 0.8 },
   },
@@ -42,4 +42,4 @@ export const nervous = {
     blinkEvery: 2,
     blinkJitter: 0.6,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

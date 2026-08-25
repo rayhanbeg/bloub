@@ -6,11 +6,11 @@
  * primitive can do, and it lands as goofy delight.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const playful = {
-  id: "playful",
-  label: "Playful",
+  id: 'playful',
+  label: 'Playful',
   face: {
     left: {
       op: 0,
@@ -35,4 +35,4 @@ export const playful = {
     blinkEvery: 2.6,
     blinkJitter: 1,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

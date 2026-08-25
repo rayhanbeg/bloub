@@ -7,14 +7,14 @@
  * the motion does the rest.
  */
 
-import type { MoodDef } from "../core/types";
+import type { MoodDef } from '../core/types'
 
 export const crying = {
-  id: "crying",
-  label: "Crying",
+  id: 'crying',
+  label: 'Crying',
   face: {
-    left: { op: 0, cy: 102, arc: { op: 1, w: 13.4, bend: 6.5, thick: 5.4 } },
-    right: { op: 0, cy: 102, arc: { op: 1, w: 13.4, bend: 6.5, thick: 5.4 } },
+    left: { op: 0, cy: 102, arc: { op: 1, w: 14, bend: 7.5, thick: 5.4 } },
+    right: { op: 0, cy: 102, arc: { op: 1, w: 14, bend: 7.5, thick: 5.4 } },
     tear: { op: 1, r: 7.5 },
   },
   // Sobbing: fast shallow breaths with a hitch (the tremble) layered on top.
@@ -28,4 +28,4 @@ export const crying = {
     trembleHarmonic: 22,
     blinkEvery: 2.4,
   },
-} satisfies MoodDef;
+} satisfies MoodDef

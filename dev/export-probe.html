@@ -83,6 +83,56 @@
       const config = { shape: 'pebble', mood: 'happy', color: '#111113' }
       const settings = { ...DEFAULT_EXPORT_SETTINGS }
 
+      /**
+       * Walk a GIF's block structure.
+       *
+       * Scanning for the 0x2C image-descriptor byte doesn't work — that byte
+       * occurs constantly inside LZW pixel data, which is why a 45-frame GIF
+       * "counted" 618 frames. The only correct way is to follow the chain:
+       * every block declares its own length, so the parser always knows where
+       * the next one starts and never reads compressed bytes as structure.
+       */
+      function parseGif(bytes) {
+        let i = 6 // "GIF89a"
+        const flags = bytes[i + 4]
+        i += 7 // logical screen descriptor
+        if (flags & 0x80) i += 3 * (1 << ((flags & 7) + 1)) // global colour table
+
+        // Sub-blocks are a run of length-prefixed chunks ending in a zero byte.
+        const skipSubBlocks = () => {
+          while (bytes[i] !== 0x00) i += bytes[i] + 1
+          i++
+        }
+
+        let frames = 0
+        let delayTotal = 0 // in GIF units: hundredths of a second
+        let loopCount = null
+
+        while (i < bytes.length && bytes[i] !== 0x3b /* trailer */) {
+          if (bytes[i] === 0x21) {
+            const label = bytes[i + 1]
+            i += 2
+            if (label === 0xf9) delayTotal += bytes[i + 2] | (bytes[i + 3] << 8) // GCE delay
+            if (label === 0xff) {
+              const tag = new TextDecoder().decode(bytes.slice(i + 1, i + 12))
+              // Netscape looping extension: <len> "NETSCAPE2.0" 03 01 <loop u16>
+              if (tag === 'NETSCAPE2.0') loopCount = bytes[i + 15] | (bytes[i + 16] << 8)
+            }
+            skipSubBlocks()
+          } else if (bytes[i] === 0x2c) {
+            frames++
+            const local = bytes[i + 9]
+            i += 10
+            if (local & 0x80) i += 3 * (1 << ((local & 7) + 1)) // local colour table
+            i++ // LZW minimum code size
+            skipSubBlocks()
+          } else {
+            break // not a GIF we understand; let the assertions fail loudly
+          }
+        }
+        return { loopCount, frames, durationMs: delayTotal * 10 }
+      }
+
       /** Read the bytes the browser would have saved. */
       async function downloadedBytes() {
         const d = lastDownload()
@@ -241,20 +291,16 @@
           const { name, bytes } = await downloadedBytes()
 
           const magic = new TextDecoder().decode(bytes.slice(0, 6))
-          // The Netscape looping extension: 21 FF 0B "NETSCAPE2.0" 03 01 <loop u16>
-          let loopCount = null
-          let frames = 0
-          for (let i = 0; i < bytes.length - 20; i++) {
-            if (bytes[i] === 0x21 && bytes[i + 1] === 0xff && bytes[i + 2] === 0x0b) {
-              const tag = new TextDecoder().decode(bytes.slice(i + 3, i + 14))
-              if (tag === 'NETSCAPE2.0') loopCount = bytes[i + 16] | (bytes[i + 17] << 8)
-            }
-            if (bytes[i] === 0x2c) frames++ // image descriptor
-          }
+          const { loopCount, frames, durationMs } = parseGif(bytes)
           const expectedFrames = Math.min(
             Math.max(Math.round(moodMotion(config.mood).loopPeriod * 14), 24),
             56,
           )
+          const expectedMs = moodMotion(config.mood).loopPeriod * 1000
+          // GIF delays are stored in hundredths of a second, so a 45-frame loop
+          // can only land within ~½ frame of the intended period. 6% covers that
+          // rounding without covering a genuinely wrong frame rate.
+          const durationOk = Math.abs(durationMs - expectedMs) / expectedMs < 0.06
 
           const blob = new Blob([bytes], { type: 'image/gif' })
           document.getElementById('gif').src = URL.createObjectURL(blob)
@@ -263,9 +309,10 @@
           report(
             '4 · Download animated GIF',
             triggered && result.ok && magic === 'GIF89a' && loopCount === 0 &&
-              frames >= expectedFrames - 2 && bytes.length < 2_000_000,
+              frames === expectedFrames && durationOk && bytes.length < 2_000_000,
             `triggered=${triggered} file=${name} magic=${magic} loopCount=${loopCount} (0=forever) ` +
-              `frames≈${frames} (expected ${expectedFrames}) ${bmp.width}×${bmp.height} ` +
+              `frames=${frames} (expected ${expectedFrames}) loop=${(durationMs / 1000).toFixed(2)}s ` +
+              `(expected ${(expectedMs / 1000).toFixed(2)}s) ${bmp.width}×${bmp.height} ` +
               `${formatBytes(bytes.length)} progress→${Math.round(seen * 100)}% — “${result.message}”`,
           )
         } catch (e) {
@@ -278,17 +325,36 @@
       try {
         const result = await EXPORT_ACTIONS.copyImage(config, settings)
         let readBack = 'not attempted'
+        let pixelsOk = true
         if (result.ok && navigator.clipboard?.read) {
           try {
             const items = await navigator.clipboard.read()
             readBack = items.flatMap((i) => i.types).join(',') || 'empty'
+            // Don't stop at "a PNG is on the clipboard" — decode it and check it
+            // is the blob at the right size with a transparent corner, the same
+            // way the downloaded PNG is checked.
+            const item = items.find((i) => i.types.includes('image/png'))
+            if (item) {
+              const bmp = await createImageBitmap(await item.getType('image/png'))
+              const c = document.createElement('canvas')
+              c.width = bmp.width
+              c.height = bmp.height
+              const ctx = c.getContext('2d')
+              ctx.drawImage(bmp, 0, 0)
+              const corner = ctx.getImageData(2, 2, 1, 1).data[3]
+              const centre = ctx.getImageData(bmp.width >> 1, bmp.height >> 1, 1, 1).data[3]
+              pixelsOk = bmp.width === settings.size * settings.scale && corner === 0 && centre === 255
+              readBack += ` ${bmp.width}×${bmp.height} cornerAlpha=${corner} centreAlpha=${centre}`
+            } else {
+              pixelsOk = false
+            }
           } catch (e) {
             readBack = `read blocked: ${e.name}`
           }
         }
         report(
           '5 · Copy image',
-          result.ok,
+          result.ok && pixelsOk,
           `apiPresent=${typeof ClipboardItem !== 'undefined' && !!navigator.clipboard?.write} ` +
             `clipboardTypes=[${readBack}] — “${result.message}”`,
         )
@@ -301,17 +367,25 @@
         const expected = staticSvg(config, settings)
         const result = await EXPORT_ACTIONS.copySvg(config, settings)
         let match = 'not attempted'
+        let readOk = true
         if (result.ok && navigator.clipboard?.readText) {
           try {
             const text = await navigator.clipboard.readText()
-            match = text === expected ? 'exact match' : `mismatch (${text.length} vs ${expected.length} chars)`
+            // Windows' clipboard stores text with CRLF line endings, so a
+            // faithful round-trip still comes back longer than it went in. The
+            // markup is what's being tested, not the OS's newline convention.
+            const same = text.replace(/\r\n/g, '\n') === expected
+            readOk = same
+            match = same
+              ? `exact match (${text.length - expected.length} char CRLF delta)`
+              : `mismatch (${text.length} vs ${expected.length} chars)`
           } catch (e) {
             match = `read blocked: ${e.name}`
           }
         }
         report(
           '6 · Copy SVG',
-          result.ok,
+          result.ok && readOk,
           `${formatBytes(new Blob([expected]).size)} of markup, readback=${match} — “${result.message}”`,
         )
       } catch (e) {

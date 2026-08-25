@@ -78,13 +78,36 @@ export const NEUTRAL_FACE: FaceSpec = {
     sq: 2.6,
     rot: 0,
     op: 1,
-    arc: { op: 0, dx: 0, dy: 0, w: 14, bend: -8.5, thick: 5.4, wave: 0, rot: 0 },
-    brow: { op: 0, dx: 0, dy: -26, w: 13, bend: -4, thick: 4.2, wave: 0, rot: 0 },
+    arc: {
+      op: 0,
+      dx: 0,
+      dy: 0,
+      w: 14,
+      bend: -8.5,
+      thick: 5.4,
+      wave: 0,
+      rot: 0,
+    },
+    brow: {
+      op: 0,
+      dx: 0,
+      dy: -26,
+      w: 13,
+      bend: -4,
+      thick: 4.2,
+      wave: 0,
+      rot: 0,
+    },
     pupil: { op: 0, dx: 0, dy: 0, r: 4.8 },
   },
   blush: 0,
+  // Both garnishes have to survive every shape's face placement. The sweat bead
+  // in particular sits well inside the top-right corner rather than out on the
+  // temple, because the triangle pinches sharply there — at `{ dy: 20, scale:
+  // 0.82 }` a bead further out lands *outside* the body, where a white drop on a
+  // white page is simply invisible.
   tear: { op: 0, x: 64, y: 124, r: 6 },
-  sweat: { op: 0, x: 150, y: 60, r: 6.4 },
+  sweat: { op: 0, x: 142, y: 74, r: 6.2 },
 }
 
 /* --------------------------------------------------------------- utilities */

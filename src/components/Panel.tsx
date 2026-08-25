@@ -17,7 +17,7 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    <section className="px-6 pb-7">
+    <section className="px-5 pb-6 sm:px-6 sm:pb-7">
       <div className="mb-3 flex h-5 items-center justify-between">
         <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-zinc-900">{title}</h2>
         {action}
@@ -27,11 +27,25 @@ export function Section({
   )
 }
 
-export function Grid({ children, cols = 4 }: { children: ReactNode; cols?: number }) {
+/**
+ * A responsive option grid.
+ *
+ * The column count is deliberately *not* a number anywhere in this file.
+ * `auto-fill` + `minmax(--tile-min, 1fr)` asks the browser to fit as many columns
+ * as the container can hold at its current width, which is what stops the grids
+ * from either overflowing on a phone or squeezing 39 moods into tiles too small
+ * to tap. Callers set `--tile-min` per breakpoint — larger on small screens so
+ * tiles stay finger-sized, smaller in the 312px desktop aside so it still reads
+ * as a tidy 4-up sheet.
+ */
+export function Grid({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className="grid gap-x-1 gap-y-3"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      className={cn(
+        'grid gap-x-1 gap-y-3',
+        '[grid-template-columns:repeat(auto-fill,minmax(var(--tile-min,62px),1fr))]',
+        className,
+      )}
     >
       {children}
     </div>
@@ -137,7 +151,10 @@ export function Toggle({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-[22px] w-[38px] rounded-full outline-none transition-colors duration-200',
+        'relative rounded-full outline-none transition-colors duration-200',
+        // Bigger on touch, back to the compact desktop pill from `sm:` up. The
+        // knob inset is 2px at both sizes, so one pair of offsets covers both.
+        'h-6 w-11 sm:h-[22px] sm:w-[38px]',
         checked ? 'bg-zinc-900' : 'bg-zinc-200',
       )}
     >
@@ -145,7 +162,7 @@ export function Toggle({
         layout
         transition={{ type: 'spring', stiffness: 620, damping: 40, mass: 0.5 }}
         className={cn(
-          'absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow-[0_1px_2px_rgba(9,9,11,0.18)]',
+          'absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_2px_rgba(9,9,11,0.18)] sm:h-[18px] sm:w-[18px]',
           checked ? 'right-[2px]' : 'left-[2px]',
         )}
       />
@@ -185,12 +202,17 @@ export function Choice<T extends string | number>({
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
-            className="relative rounded-[6px] px-2 py-1 text-[11.5px] font-medium tabular-nums outline-none"
+            className="relative rounded-[6px] px-3 py-1.5 text-[12px] font-medium tabular-nums outline-none sm:px-2 sm:py-1 sm:text-[11.5px]"
           >
             {selected && (
               <motion.span
                 layoutId={`choice-${label}`}
-                transition={{ type: 'spring', stiffness: 620, damping: 42, mass: 0.5 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 620,
+                  damping: 42,
+                  mass: 0.5,
+                }}
                 className="absolute inset-0 rounded-[6px] bg-white shadow-[0_1px_2px_rgba(9,9,11,0.10)]"
               />
             )}
