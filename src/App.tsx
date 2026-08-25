@@ -20,6 +20,9 @@ import { BlobProvider, useBlob } from './state/BlobProvider'
 const PREVIEW_BOX =
   'aspect-square w-[min(78vw,36dvh)] sm:w-[min(62vw,42dvh)] lg:w-[min(392px,58dvh)]'
 
+// Keep the existing stage/canvas size; scale only the rendered character.
+const CHARACTER_SCALE = 'origin-center scale-[0.85]'
+
 function Workspace() {
   const { config, settings } = useBlob()
 
@@ -44,7 +47,12 @@ function Workspace() {
             with a zero basis in an auto-height column can collapse to nothing. */}
         <div className="relative flex items-center justify-center px-5 pb-2 pt-12 sm:px-8 sm:pt-14 lg:flex-1 lg:py-0">
           <div className={PREVIEW_BOX}>
-            <BlobPreview config={config} size="100%" idle={settings.idle} />
+            <BlobPreview
+              config={config}
+              size="100%"
+              idle={settings.idle}
+              className={CHARACTER_SCALE}
+            />
           </div>
         </div>
 

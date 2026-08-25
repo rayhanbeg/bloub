@@ -7,13 +7,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const curious = {
   id: 'curious',
   label: 'Curious',
   face: {
-    left: { rx: 10.2, ry: 20.4, sq: 2.4, cy: 96 },
-    right: { rx: 10.2, ry: 12.6, sq: 2.4, cy: 102 },
+    left: { ...EYE.open, cy: 97, ry: 16.2 },
+    right: { ...EYE.softOpen, cy: 101 },
   },
   // Leans in and peers, gaze sweeping slowly across — looking *at* something.
   motion: {

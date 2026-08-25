@@ -48,9 +48,9 @@ export interface CurveSpec {
 }
 
 /**
- * A pupil / iris dot. Painted in the *blob's own colour* so it reads as a hole
- * punched out of the eye — that is what turns a plain oval into a ring eye
- * (surprised, scared) or a shifty side-eye (suspicious, sneaky).
+ * Legacy pupil/iris data retained for compatibility with existing mood data.
+ * The canonical renderer does not draw this layer: every eye is one clean,
+ * feature-colour shape.
  */
 export interface PupilSpec {
   op: number

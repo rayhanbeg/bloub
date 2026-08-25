@@ -7,13 +7,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const thinking = {
   id: 'thinking',
   label: 'Thinking',
   face: {
-    left: { cx: 84, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
-    right: { cx: 130, cy: 96, rx: 8.8, ry: 13.2, sq: 2.7 },
+    left: { ...EYE.softOpen, cx: 83, cy: 96 },
+    right: { ...EYE.softOpen, cx: 131, cy: 96 },
   },
   // A slow lean with the gaze drifting further up and away.
   motion: {

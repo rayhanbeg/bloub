@@ -8,13 +8,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const surprised = {
   id: 'surprised',
   label: 'Surprised',
   face: {
-    left: { rx: 11.8, ry: 11.8, sq: 2, cy: 100, pupil: { op: 1, r: 5.6 } },
-    right: { rx: 11.8, ry: 11.8, sq: 2, cy: 100, pupil: { op: 1, r: 5.6 } },
+    left: { ...EYE.open, ry: 14.4, cy: 100 },
+    right: { ...EYE.open, ry: 14.4, cy: 100 },
   },
   // Caught mid-breath: almost frozen, held slightly large, blinking rarely.
   motion: {

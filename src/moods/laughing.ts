@@ -9,13 +9,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const laughing = {
   id: 'laughing',
   label: 'Laughing',
   face: {
-    left: { op: 0, cy: 96, arc: { op: 1, w: 12, bend: -11.5, thick: 6.2 } },
-    right: { op: 0, cy: 96, arc: { op: 1, w: 12, bend: -11.5, thick: 6.2 } },
+    left: { ...EYE.closed, cy: 96, arc: { op: 1, w: 13.6, bend: -9.2, thick: 5.8 } },
+    right: { ...EYE.closed, cy: 96, arc: { op: 1, w: 13.6, bend: -9.2, thick: 5.8 } },
     blush: 0.4,
   },
   // Fast and big, with a shake layered on so the whole body laughs too.

@@ -10,13 +10,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const excited = {
   id: 'excited',
   label: 'Excited',
   face: {
-    left: { rx: 11.8, ry: 14.6, sq: 2.05, cy: 96 },
-    right: { rx: 11.8, ry: 14.6, sq: 2.05, cy: 96 },
+    left: { ...EYE.open, ry: 14.4, cy: 97 },
+    right: { ...EYE.open, ry: 14.4, cy: 97 },
     blush: 0.6,
   },
   // The fastest breathing of any mood, plus a hop once per loop.

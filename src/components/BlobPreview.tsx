@@ -17,25 +17,17 @@
  * what lands in an exported file identical.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
-import { curvePath, ellipsePath, featureColor, superellipsePath } from '../core/geometry'
-import {
-  BLUSH,
-  FACE_ORIGIN,
-  blinkBend,
-  blinkOffset,
-  blinkPupil,
-  blinkRy,
-  blinkThick,
-} from '../core/face'
+import { curvePath, featureColor, superellipsePath } from '../core/geometry'
+import { FACE_ORIGIN, blinkRy } from '../core/face'
 import { VIEWBOX } from '../core/generateBlob'
 import { scope, useFaceMotion } from '../animation/useFaceMotion'
 import { useShapeMorph } from '../animation/useShapeMorph'
 import { useIdleMotion } from '../animation/useIdleMotion'
 import { cn } from '../utils/cn'
-import type { FaceGetter, FaceValues } from '../animation/useFaceMotion'
+import type { FaceGetter } from '../animation/useFaceMotion'
 import type { BlobConfig } from '../core/types'
 
 const COLOR_TRANSITION = { duration: 0.5, ease: [0.22, 1, 0.36, 1] } as const
@@ -53,14 +45,13 @@ function useAnimatedColor(target: string): MotionValue<string> {
 interface EyeProps {
   get: FaceGetter
   features: MotionValue<string>
-  body: MotionValue<string>
   /** 1 = open, 0 = fully closed. Shared by both eyes so blinks stay in sync. */
   blink: MotionValue<number>
   gazeX: MotionValue<number>
   gazeY: MotionValue<number>
 }
 
-function Eye({ get, features, body, blink, gazeX, gazeY }: EyeProps) {
+function Eye({ get, features, blink, gazeX, gazeY }: EyeProps) {
   const cx = get('cx')
   const cy = get('cy')
 
@@ -81,51 +72,7 @@ function Eye({ get, features, body, blink, gazeX, gazeY }: EyeProps) {
     },
   )
 
-  const arc = useTransform(
-    [
-      cx,
-      cy,
-      get('arc.dx'),
-      get('arc.dy'),
-      get('arc.w'),
-      get('arc.bend'),
-      get('arc.thick'),
-      get('arc.wave'),
-      get('arc.rot'),
-      blink,
-      gazeX,
-      gazeY,
-    ],
-    (v: number[]) => {
-      const [x, y, dx, dy, w, bend, thick, wave, rot, b, gx, gy] = v
-      return curvePath({
-        cx: x + dx + gx,
-        cy: y + dy + gy,
-        w,
-        // Blinking flattens the arch and thins the band, so `^^` eyes blink too.
-        bend: blinkBend(bend, b),
-        thick: blinkThick(thick, b),
-        wave,
-        rot,
-      })
-    },
-  )
-
-  const pupil = useTransform(
-    [cx, cy, get('pupil.dx'), get('pupil.dy'), get('pupil.r'), blink, gazeX, gazeY],
-    (v: number[]) => {
-      const [x, y, dx, dy, r, b, gx, gy] = v
-      const rb = blinkPupil(r, b)
-      return ellipsePath({
-        cx: x + dx + gx,
-        cy: y + blinkOffset(dy, b) + gy,
-        rx: rb,
-        ry: rb,
-      })
-    },
-  )
-
-  const brow = useTransform(
+  void useTransform(
     [
       cx,
       cy,
@@ -146,47 +93,10 @@ function Eye({ get, features, body, blink, gazeX, gazeY }: EyeProps) {
     },
   )
 
-  return (
-    <>
-      <motion.path d={ball} fill={features} opacity={get('op')} />
-      <motion.path d={arc} fill={features} opacity={get('arc.op')} />
-      <motion.path d={pupil} fill={body} opacity={get('pupil.op')} />
-      <motion.path d={brow} fill={features} opacity={get('brow.op')} />
-    </>
-  )
+  return <motion.path d={ball} fill={features} opacity={get('op')} />
 }
 
 /** Blush, tear and sweat — fixed geometry, opacity-driven. */
-function Garnishes({ values, features }: { values: FaceValues; features: MotionValue<string> }) {
-  const blushOp = useTransform(values.blush, (v: number) => v * BLUSH.strength)
-  const blushLeft = useMemo(
-    () => ellipsePath({ cx: 100 - BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
-    [],
-  )
-  const blushRight = useMemo(
-    () => ellipsePath({ cx: 100 + BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
-    [],
-  )
-
-  const tear = useTransform(
-    [values['tear.x'], values['tear.y'], values['tear.r']],
-    (v: number[]) => ellipsePath({ cx: v[0], cy: v[1], rx: v[2] * 0.78, ry: v[2] }),
-  )
-  const sweat = useTransform(
-    [values['sweat.x'], values['sweat.y'], values['sweat.r']],
-    (v: number[]) => ellipsePath({ cx: v[0], cy: v[1], rx: v[2] * 0.72, ry: v[2] }),
-  )
-
-  return (
-    <>
-      <motion.path d={blushLeft} fill={features} opacity={blushOp} />
-      <motion.path d={blushRight} fill={features} opacity={blushOp} />
-      <motion.path d={tear} fill={features} opacity={values['tear.op']} />
-      <motion.path d={sweat} fill={features} opacity={values['sweat.op']} />
-    </>
-  )
-}
-
 export interface BlobPreviewProps {
   config: BlobConfig
   /**
@@ -269,7 +179,6 @@ export function BlobPreview({ config, size = 400, className, idle = true }: Blob
           <Eye
             get={scope(values, 'left')}
             features={featuresColor}
-            body={bodyColor}
             blink={blink}
             gazeX={gazeX}
             gazeY={gazeY}
@@ -277,12 +186,10 @@ export function BlobPreview({ config, size = 400, className, idle = true }: Blob
           <Eye
             get={scope(values, 'right')}
             features={featuresColor}
-            body={bodyColor}
             blink={blink}
             gazeX={gazeX}
             gazeY={gazeY}
           />
-          <Garnishes values={values} features={featuresColor} />
         </g>
       </g>
     </svg>

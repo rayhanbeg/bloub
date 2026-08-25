@@ -70,7 +70,10 @@ function cssBodyTransform(s: IdleState, c = VIEWBOX / 2): string {
 
 /** A vertical squash about an arbitrary point — how an eye blinks. */
 function cssBlinkTransform(cx: number, cy: number, k: number): string {
-  return `translate(${r(cx)}px,${r(cy)}px) scaleY(${r(k)}) translate(${r(-cx)}px,${r(-cy)}px)`
+  // Match the live/GIF minimum lid height: a blink compresses the same two eye
+  // shapes but never turns either one into a hairline.
+  const open = Math.max(k, 0.58)
+  return `translate(${r(cx)}px,${r(cy)}px) scaleY(${r(open)}) translate(${r(-cx)}px,${r(-cy)}px)`
 }
 
 interface Track {
@@ -131,10 +134,8 @@ function namespace(config: BlobConfig): string {
  *   path                                           (the body)
  *   g        → the shape's face fit (static)
  *     g.gaze → gaze drift                          (both eyes)
- *       g.eyeL → blink                             (left eye + arc + pupil)
+ *       g.eyeL → blink                             (left eye + arc)
  *       g.eyeR → blink
- *     g.brow → half the gaze drift                  (brows track the head)
- *     path…                                        (blush, tear, sweat)
  * ```
  */
 export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOptions = {}): string {
@@ -216,17 +217,11 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
   // skipped pulls its children one level out.
   const eyeDepth = 2 + (gazes ? 1 : 0) + (blinks ? 1 : 0)
   const eyeBlock = blinks
-    ? wrap(cls.eyeL, eyeDepth - 1, paths(['left.eye', 'left.arc', 'left.pupil'], eyeDepth)) +
-      wrap(cls.eyeR, eyeDepth - 1, paths(['right.eye', 'right.arc', 'right.pupil'], eyeDepth))
-    : paths(['left.eye', 'left.arc', 'left.pupil'], eyeDepth) +
-      paths(['right.eye', 'right.arc', 'right.pupil'], eyeDepth)
+    ? wrap(cls.eyeL, eyeDepth - 1, paths(['left.eye'], eyeDepth)) +
+      wrap(cls.eyeR, eyeDepth - 1, paths(['right.eye'], eyeDepth))
+    : paths(['left.eye'], eyeDepth) + paths(['right.eye'], eyeDepth)
 
-  const faceInner =
-    (gazes ? wrap(cls.gaze, 2, eyeBlock) : eyeBlock) +
-    (gazes
-      ? wrap(cls.brow, 2, paths(['left.brow', 'right.brow'], 3))
-      : paths(['left.brow', 'right.brow'], 2)) +
-    paths(['blush.left', 'blush.right', 'tear', 'sweat'], 2)
+  const faceInner = gazes ? wrap(cls.gaze, 2, eyeBlock) : eyeBlock
 
   const fit = facePlacementTransform(shapeFacePlacement(config.shape))
   const faceGroup = faceInner

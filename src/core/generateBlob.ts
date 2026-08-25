@@ -6,8 +6,8 @@
  * system serialises, and what a future standalone package would expose.
  */
 
-import { curvePath, ellipsePath, featureColor, superellipsePath } from './geometry'
-import { BLUSH, facePlacementTransform } from './face'
+import { featureColor, superellipsePath } from './geometry'
+import { facePlacementTransform } from './face'
 import type { BlobConfig, EyeSpec, FacePlacement, FaceSpec } from './types'
 import { moodFace } from '../moods'
 import { shapeFacePlacement, shapePath } from '../shapes'
@@ -42,31 +42,6 @@ const eyePrimitives = (eye: EyeSpec, side: string): Primitive[] => [
     paint: 'features',
     op: eye.op,
   },
-  {
-    key: `${side}.arc`,
-    d: curvePath({ ...eye.arc, cx: eye.cx + eye.arc.dx, cy: eye.cy + eye.arc.dy }),
-    paint: 'features',
-    op: eye.arc.op,
-  },
-  {
-    // Painted in the *body* colour, so it reads as a hole punched in the eye —
-    // that is what turns a plain oval into a ring eye or a shifty side-eye.
-    key: `${side}.pupil`,
-    d: ellipsePath({
-      cx: eye.cx + eye.pupil.dx,
-      cy: eye.cy + eye.pupil.dy,
-      rx: eye.pupil.r,
-      ry: eye.pupil.r,
-    }),
-    paint: 'body',
-    op: eye.pupil.op,
-  },
-  {
-    key: `${side}.brow`,
-    d: curvePath({ ...eye.brow, cx: eye.cx + eye.brow.dx, cy: eye.cy + eye.brow.dy }),
-    paint: 'features',
-    op: eye.brow.op,
-  },
 ]
 
 /**
@@ -74,47 +49,12 @@ const eyePrimitives = (eye: EyeSpec, side: string): Primitive[] => [
  * definition of "what a face is made of" — the live preview animates these same
  * pieces, and the exporters serialise them.
  *
- * Note what is *not* here: there is no mouth primitive. Expression comes entirely
- * from the eyes; blush, tear and sweat are supporting garnishes.
+ * The canonical face consists exclusively of the two eye primitives.
  */
 export function facePrimitives(face: FaceSpec): Primitive[] {
   return [
     ...eyePrimitives(face.left, 'left'),
     ...eyePrimitives(face.right, 'right'),
-    {
-      key: 'blush.left',
-      d: ellipsePath({ cx: 100 - BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
-      paint: 'features',
-      op: face.blush * BLUSH.strength,
-    },
-    {
-      key: 'blush.right',
-      d: ellipsePath({ cx: 100 + BLUSH.dx, cy: BLUSH.y, rx: BLUSH.rx, ry: BLUSH.ry }),
-      paint: 'features',
-      op: face.blush * BLUSH.strength,
-    },
-    {
-      key: 'tear',
-      d: ellipsePath({
-        cx: face.tear.x,
-        cy: face.tear.y,
-        rx: face.tear.r * 0.78,
-        ry: face.tear.r,
-      }),
-      paint: 'features',
-      op: face.tear.op,
-    },
-    {
-      key: 'sweat',
-      d: ellipsePath({
-        cx: face.sweat.x,
-        cy: face.sweat.y,
-        rx: face.sweat.r * 0.72,
-        ry: face.sweat.r,
-      }),
-      paint: 'features',
-      op: face.sweat.op,
-    },
   ]
 }
 
@@ -182,8 +122,7 @@ export function generateBlobSvg(config: BlobConfig, options: GenerateOptions = {
     pretty = false,
   } = options
 
-  // With no body behind it, a pupil "hole" has to be punched through to the
-  // card background instead of to the blob colour.
+  // Feature-only picker cards still use the card background as their body role.
   const bodyPaint = featuresOnly ? (background ?? '#09090b') : config.color
   const colors: Record<PaintRole, string> = { features, body: bodyPaint }
 

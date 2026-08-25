@@ -10,24 +10,21 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE, eyeBrow } from '../core/face'
 
 export const attentive = {
   id: 'attentive',
   label: 'Attentive',
   face: {
     left: {
-      rx: 8.8,
-      ry: 18.6,
-      sq: 2.5,
+      ...EYE.open,
       cy: 99,
-      brow: { op: 1, dy: -25, w: 11.5, bend: -3, thick: 3.2 },
+      ...eyeBrow(-3, -24),
     },
     right: {
-      rx: 8.8,
-      ry: 18.6,
-      sq: 2.5,
+      ...EYE.open,
       cy: 99,
-      brow: { op: 1, dy: -25, w: 11.5, bend: -3, thick: 3.2 },
+      ...eyeBrow(-3, -24),
     },
   },
   // A shade quicker than Neutral, blinking a little more often — engaged.

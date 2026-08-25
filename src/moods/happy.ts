@@ -9,13 +9,14 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const happy = {
   id: 'happy',
   label: 'Happy',
   face: {
-    left: { op: 0, cy: 99, arc: { op: 1, w: 14.5, bend: -7, thick: 5.6 } },
-    right: { op: 0, cy: 99, arc: { op: 1, w: 14.5, bend: -7, thick: 5.6 } },
+    left: { ...EYE.closed, cy: 99 },
+    right: { ...EYE.closed, cy: 99 },
     blush: 0.5,
   },
   // Light and quick without tipping into frantic.

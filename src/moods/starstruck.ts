@@ -11,24 +11,21 @@
  */
 
 import type { MoodDef } from '../core/types'
+import { EYE } from '../core/face'
 
 export const starstruck = {
   id: 'starstruck',
   label: 'Star-struck',
   face: {
     left: {
-      rx: 12,
-      ry: 14.6,
-      sq: 2.1,
+      ...EYE.open,
+      ry: 14.2,
       cy: 98,
-      pupil: { op: 1, dx: 2.6, dy: -1.8, r: 4.4 },
     },
     right: {
-      rx: 12,
-      ry: 14.6,
-      sq: 2.1,
+      ...EYE.open,
+      ry: 14.2,
       cy: 98,
-      pupil: { op: 1, dx: -2.6, dy: -1.8, r: 4.4 },
     },
     blush: 0.95,
   },

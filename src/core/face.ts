@@ -11,7 +11,7 @@
  * every emotion on their own.
  */
 
-import type { DeepPartial, FacePlacement, FaceSpec } from './types'
+import type { DeepPartial, EyeSpec, FacePlacement, FaceSpec } from './types'
 
 /**
  * The point a face is scaled about when a shape asks for a smaller face.
@@ -43,6 +43,28 @@ const round = (v: number): number => Math.round(v * 1000) / 1000
  *  should be felt rather than seen. */
 export const BLUSH = { dx: 46, y: 128, rx: 13.5, ry: 6.5, strength: 0.2 } as const
 
+/* ---------------------------------------------------------- eye language */
+
+/**
+ * The small, shared vocabulary for the Bloub eye family. These partial
+ * `EyeSpec`s let moods adjust position, gaze, or brows without introducing a
+ * separate eye silhouette.
+ */
+export const EYE = {
+  open: { rx: 14, ry: 13.2, sq: 3.2, op: 1, arc: { op: 0 } },
+  softOpen: { rx: 14, ry: 11.8, sq: 3.2, op: 1, arc: { op: 0 } },
+  squint: { rx: 14, ry: 7.8, sq: 3.2, op: 1, arc: { op: 0 } },
+  closed: { op: 0, arc: { op: 1, w: 15, bend: -6.8, thick: 5.4 } },
+  eyelid: { arc: { op: 1, w: 14.6, bend: -4.5, thick: 3.8 } },
+} as const satisfies Record<string, DeepPartial<EyeSpec>>
+
+/** A restrained optional brow primitive. */
+export const eyeBrow = (
+  bend = -3,
+  dy = -22,
+  rot = 0,
+): DeepPartial<EyeSpec> => ({ brow: { op: 1, dy, w: 12.5, bend, thick: 3.6, rot } })
+
 /**
  * The resting face: two big, soft, slightly-tall rounded capsules set wide
  * apart. No brows, no pupils, and — here and everywhere else — no mouth.
@@ -59,11 +81,9 @@ export const BLUSH = { dx: 46, y: 128, rx: 13.5, ry: 6.5, strength: 0.2 } as con
  */
 export const NEUTRAL_FACE: FaceSpec = {
   left: {
-    cx: 77,
+    cx: 76,
     cy: 100,
-    rx: 10,
-    ry: 17.6,
-    sq: 2.6,
+    ...EYE.open,
     rot: 0,
     op: 1,
     arc: { op: 0, dx: 0, dy: 0, w: 14, bend: -8.5, thick: 5.4, wave: 0, rot: 0 },
@@ -71,11 +91,9 @@ export const NEUTRAL_FACE: FaceSpec = {
     pupil: { op: 0, dx: 0, dy: 0, r: 4.8 },
   },
   right: {
-    cx: 123,
+    cx: 124,
     cy: 100,
-    rx: 10,
-    ry: 17.6,
-    sq: 2.6,
+    ...EYE.open,
     rot: 0,
     op: 1,
     arc: {
@@ -137,9 +155,38 @@ function deepMerge<T>(base: T, over: DeepPartial<T> | undefined): T {
   return out as T
 }
 
+/**
+ * Keep filled eyes within the canonical Bloub family even for legacy mood
+ * definitions that predate the shared presets. Closed arc eyes remain arcs;
+ * open eyes stay soft, consistently sized pills rather than becoming dots,
+ * circles, or very tall capsules.
+ */
+function normalizeOpenEye(eye: EyeSpec): EyeSpec {
+  const closed = eye.op <= 0.002 || eye.arc.op > 0.5
+  const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)
+  return {
+    ...eye,
+    rx: 14,
+    ry: closed ? 8.6 : clamp(eye.ry, 8.6, 14.4),
+    sq: 3.2,
+    op: 1,
+    arc: { ...eye.arc, op: 0 },
+    brow: { ...eye.brow, op: 0 },
+    pupil: { ...eye.pupil, op: 0 },
+  }
+}
+
 /** Apply a mood's overrides to the neutral face, producing a complete face. */
 export function resolveFace(override: DeepPartial<FaceSpec>): FaceSpec {
-  return deepMerge(NEUTRAL_FACE, override)
+  const face = deepMerge(NEUTRAL_FACE, override)
+  return {
+    ...face,
+    left: normalizeOpenEye(face.left),
+    right: normalizeOpenEye(face.right),
+    blush: 0,
+    tear: { ...face.tear, op: 0 },
+    sweat: { ...face.sweat, op: 0 },
+  }
 }
 
 /**
@@ -174,7 +221,7 @@ export const FACE_KEYS: readonly string[] = Object.keys(flattenFace(NEUTRAL_FACE
  * valid path, but browsers and rasterisers disagree about how to render one, and
  * a hairline that reopens is indistinguishable from nothing at this size.
  */
-export const blinkRy = (ry: number, b: number): number => Math.max(ry * b, 0.3)
+export const blinkRy = (ry: number, b: number): number => Math.max(ry * b, 8.2)
 export const blinkBend = (bend: number, b: number): number => bend * b
 export const blinkThick = (thick: number, b: number): number =>
   Math.max(thick * (0.35 + 0.65 * b), 0.3)
