@@ -15,9 +15,9 @@ const SCALES = [
 ] as const
 
 const GIF_SIZES = [
-  { value: 200, label: 'S' },
-  { value: 256, label: 'M' },
-  { value: 360, label: 'L' },
+  { value: 256, label: 'S' },
+  { value: 512, label: 'M' },
+  { value: 720, label: 'L' },
 ] as const
 
 export function SettingsPanel() {
@@ -63,6 +63,28 @@ export function SettingsPanel() {
             onChange={(gifSize) => updateSettings({ gifSize })}
           />
         </Row>
+        <Divider />
+        <div className="pt-4">
+          <div className="text-[12.5px] font-medium tracking-tight text-zinc-800">Developed by Rayhan</div>
+          <div className="mt-2 space-y-1.5 text-[11.5px] leading-snug">
+            <a
+              href="https://github.com/rayhanbeg/bloub"
+              target="_blank"
+              rel="noreferrer"
+              className="block w-fit text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              GitHub <span className="text-zinc-700">@rayhanbeg/bloub</span>
+            </a>
+            <a
+              href="https://www.instagram.com/md_rayha_n/"
+              target="_blank"
+              rel="noreferrer"
+              className="block w-fit text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              Instagram <span className="text-zinc-700">@md_rayha_n</span>
+            </a>
+          </div>
+        </div>
       </div>
     </Section>
   )

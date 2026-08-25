@@ -48,7 +48,7 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
   size: 512,
   scale: 3,
   transparent: true,
-  gifSize: 256,
+  gifSize: 512,
 }
 
 /** `bloub-happy-pebble.png` */
