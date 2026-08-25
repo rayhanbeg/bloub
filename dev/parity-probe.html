@@ -164,6 +164,30 @@
         `preview: ${rootTag(worstMood.previewMarkup)}<br>export:&nbsp; ${rootTag(worstMood.exportMarkup)}`,
       )
 
+      /* ---- every shape: the face-fit transform is where parity broke ------ */
+      // The per-shape offset and scale is the one part of the face that *is* a
+      // transform rather than baked path data, so it gets its own pass. A bug
+      // here is invisible on `pebble` alone if the shape happens to need no fit.
+      const { SHAPES } = await import('/src/shapes/index.ts')
+      const shapeResults = []
+      for (const shape of SHAPES) {
+        const config = { shape: shape.id, mood: 'neutral', color: '#111113' }
+        root.render(null)
+        await frame()
+        root.render(createElement(BlobPreview, { config, size: SIZE, idle: false }))
+        const { markup: previewMarkup } = await settled('#stage svg')
+        const exportMarkup = staticSvg(config, settings)
+        const [a, b] = await Promise.all([raster(previewMarkup), raster(exportMarkup)])
+        shapeResults.push({ shape: shape.id, ...diff(a, b) })
+      }
+      const worstShape = shapeResults.reduce((m, r) => (r.mean > m.mean ? r : m), shapeResults[0])
+      report(
+        `all ${shapeResults.length} shapes · preview pixels === export pixels`,
+        shapeResults.every((r) => r.mean < 0.5 && r.worst < 24),
+        `worst shape: ${worstShape.shape} (mean Δ ${worstShape.mean.toFixed(4)}/255, peak Δ ${worstShape.worst}) — ` +
+          `${shapeResults.filter((r) => r.mean < 0.01).length} of ${shapeResults.length} pixel-identical`,
+      )
+
       /* ---- ink colour: static and animated must agree -------------------- */
       // featureColor() is the one thing an all-geometry diff can't see, and it
       // was rewritten to stop producing black eyes. Both export paths must call it.
