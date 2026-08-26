@@ -26,6 +26,7 @@ import { VIEWBOX } from '../core/generateBlob'
 import { scope, useFaceMotion } from '../animation/useFaceMotion'
 import { useShapeMorph } from '../animation/useShapeMorph'
 import { useIdleMotion } from '../animation/useIdleMotion'
+import { usePointerGaze } from '../animation/usePointerGaze'
 import { cn } from '../utils/cn'
 import type { FaceGetter } from '../animation/useFaceMotion'
 import type { BlobConfig } from '../core/types'
@@ -115,6 +116,13 @@ export interface BlobPreviewProps {
    * Only the stage preview asks for this; tiles and exports stay at rest.
    */
   intro?: boolean
+  /**
+   * Let the eyes follow the pointer — see `animation/usePointerGaze.ts`.
+   *
+   * Off by default, and for the same reason as `intro`: forty tiles in a picker
+   * grid all turning to stare at the cursor is a jump scare, not a delight.
+   */
+  follow?: boolean
 }
 
 /**
@@ -129,14 +137,19 @@ export function BlobPreview({
   className,
   idle = true,
   intro = false,
+  follow = false,
 }: BlobPreviewProps) {
   const values = useFaceMotion(config.mood)
   const shape = useShapeMorph(config.shape)
+  const pointer = usePointerGaze(follow)
   const { blink, gazeX, gazeY, bodyRef } = useIdleMotion({
     moodId: config.mood,
     kick: shape.kick,
     enabled: idle,
     intro,
+    // Passed unconditionally: with tracking off its `attention` stays at 0, which
+    // the loop already reads as "no cursor".
+    follow: pointer.gaze,
   })
 
   const bodyColor = useAnimatedColor(config.color)
@@ -174,6 +187,7 @@ export function BlobPreview({
 
   return (
     <svg
+      ref={pointer.ref}
       width={size}
       height={size}
       viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}

@@ -84,6 +84,7 @@ function Workspace() {
               size="100%"
               idle={settings.idle}
               intro={play}
+              follow
               className={CHARACTER_SCALE}
             />
           </motion.div>

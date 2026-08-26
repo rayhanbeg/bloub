@@ -26,9 +26,25 @@ import { blinkAmount, DEFAULT_MOTION, idleAt, idleTransform } from '../core/idle
 import type { MoodMotion } from '../core/idle'
 import { INTRO_DURATION, INTRO_FACE_DELAY, introAt } from '../core/intro'
 import { moodMotion } from '../moods'
+import type { PointerGaze } from './usePointerGaze'
 
 /** How fast motion parameters chase a new mood's values, in e-folds/second. */
 const PARAM_EASE_RATE = 4.5
+
+/**
+ * How fast the eyes chase the cursor, in e-folds/second — a ~140ms time constant.
+ *
+ * This is the lerp that makes tracking feel like looking rather than like being
+ * wired to the mouse. Much faster and every jitter in the pointer is on the face;
+ * much slower and the eyes are visibly running late.
+ */
+const FOLLOW_EASE_RATE = 7
+
+/**
+ * How fast the gaze changes hands between the idle drift and the cursor. Slower
+ * than the chase on purpose — noticing you and losing interest are both gradual.
+ */
+const ATTENTION_EASE_RATE = 2.6
 
 const MOTION_KEYS = Object.keys(DEFAULT_MOTION) as Array<keyof MoodMotion>
 
@@ -53,6 +69,14 @@ export interface UseIdleOptions {
    * blobs all glancing about at once would be a stampede, not a welcome.
    */
   intro?: boolean
+  /**
+   * Where the cursor is, if this blob is watching one — see `usePointerGaze`.
+   *
+   * Read every frame rather than depended on, so the object must be stable across
+   * renders. When it's absent, or its `attention` is 0, the gaze is exactly what
+   * it was before this option existed.
+   */
+  follow?: PointerGaze
 }
 
 export function useIdleMotion({
@@ -60,6 +84,7 @@ export function useIdleMotion({
   kick,
   enabled = true,
   intro = false,
+  follow,
 }: UseIdleOptions): IdleMotion {
   const bodyRef = useRef<SVGGElement>(null)
   const blink = useMotionValue(1)
@@ -74,6 +99,15 @@ export function useIdleMotion({
   const blinkStart = useRef(-999)
   const nextBlink = useRef(1.5)
   const elapsed = useRef(0)
+
+  /**
+   * The smoothed pointer gaze, and how much of the gaze it currently owns.
+   *
+   * Both are eased, and both have to be: easing only the weight would still snap
+   * the eyes between mouse positions while the weight sat at 1, and easing only
+   * the position would make the handover back to the idle drift a jump cut.
+   */
+  const watching = useRef({ x: 0, y: 0, weight: 0 })
 
   // Reset the blink schedule when the mood changes so a new blink rhythm starts
   // promptly instead of waiting out the old interval.
@@ -93,11 +127,24 @@ export function useIdleMotion({
       c[key] += (target[key] - c[key]) * blendFactor
     }
 
+    // Chase the cursor. Both terms are frame-rate independent for the same reason
+    // the parameter easing is: `1 - e^(-dt·rate)` is the fraction of the remaining
+    // distance to close in `dt`, which a fixed 0.1 would not be.
+    const w = watching.current
+    const chase = 1 - Math.exp(-dt * FOLLOW_EASE_RATE)
+    w.x += ((follow?.x ?? 0) - w.x) * chase
+    w.y += ((follow?.y ?? 0) - w.y) * chase
+    w.weight +=
+      ((follow?.attention ?? 0) - w.weight) * (1 - Math.exp(-dt * ATTENTION_EASE_RATE))
+
     if (!enabled) {
       blink.set(1)
-      gazeX.set(0)
-      gazeY.set(0)
       bodyRef.current?.removeAttribute('transform')
+      // Following a cursor is a response, not an idle animation, so it survives
+      // the idle switch being off. With no drift underneath, the pointer is the
+      // entire gaze.
+      gazeX.set(w.x * w.weight)
+      gazeY.set(w.y * w.weight)
       return
     }
 
@@ -114,15 +161,28 @@ export function useIdleMotion({
 
     bodyRef.current?.setAttribute('transform', idleTransform(state))
 
+    /*
+     * The ambient gaze: where the eyes rest when nothing is scripting them. That's
+     * the idle drift, crossfaded with the cursor if there's a cursor to watch.
+     *
+     * Crossfaded rather than summed. Both terms are bounded — the drift by the
+     * mood's `gazeX`, the cursor by `FOLLOW_REACH` — but adding two bounded things
+     * gives you the sum of the bounds, and eyes that far out start to look
+     * detached from the face.
+     */
+    const ambientX = state.gazeX * (1 - w.weight) + w.x * w.weight
+    const ambientY = state.gazeY * (1 - w.weight) + w.y * w.weight
+
     // For its first couple of seconds on screen the intro owns the eyes: it holds
     // them in a squint through the camera's close-up, opens them as the blob
     // comes into focus, walks them left and right, and blinks once. Breathing
     // keeps running underneath — only the gaze and the lids are borrowed, and
-    // only until `idleMix` has faded the loop's own gaze back in.
+    // only until `idleMix` has faded the ambient gaze back in. The cursor waits
+    // its turn inside that same handover; nobody interrupts an entrance.
     if (intro && elapsed.current < INTRO_FACE_DELAY + INTRO_DURATION) {
       const scripted = introAt(elapsed.current - INTRO_FACE_DELAY)
-      gazeX.set(scripted.gazeX + state.gazeX * scripted.idleMix)
-      gazeY.set(scripted.gazeY + state.gazeY * scripted.idleMix)
+      gazeX.set(scripted.gazeX + ambientX * scripted.idleMix)
+      gazeY.set(scripted.gazeY + ambientY * scripted.idleMix)
       blink.set(scripted.blink)
       // Hold the random schedule off until the intro is done, so its deliberate
       // blink isn't stepped on by an idle one landing at the same moment.
@@ -130,11 +190,14 @@ export function useIdleMotion({
       return
     }
 
-    gazeX.set(state.gazeX)
-    gazeY.set(state.gazeY)
+    gazeX.set(ambientX)
+    gazeY.set(ambientY)
 
     // Randomised blink schedule — the one part that is deliberately not a pure
-    // function of phase, because a predictable blink reads as mechanical.
+    // function of phase, because a predictable blink reads as mechanical. It is
+    // also untouched by cursor tracking: a blob that watches you should still
+    // blink while it does it, or it stops looking like it's alive and starts
+    // looking like it's staring.
     if (elapsed.current >= nextBlink.current) {
       blinkStart.current = elapsed.current
       const jitter = (Math.random() * 2 - 1) * c.blinkJitter
