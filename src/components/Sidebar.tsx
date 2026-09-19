@@ -29,11 +29,14 @@ import { cn } from '../utils/cn'
 const TABS: Array<{
   id: Tab
   label: string
+  /** Shown beside the label in the rail's tooltip. An icon and a single noun
+   *  say *what* a section is called; this says what's actually inside it. */
+  hint: string
   Icon: ComponentType<{ className?: string }>
 }> = [
-  { id: 'style', label: 'Style', Icon: PaletteIcon },
-  { id: 'presets', label: 'Presets', Icon: GiftIcon },
-  { id: 'settings', label: 'Settings', Icon: SlidersIcon },
+  { id: 'style', label: 'Style', hint: 'shape, mood, colour', Icon: PaletteIcon },
+  { id: 'presets', label: 'Presets', hint: 'ready-made Bloubs', Icon: GiftIcon },
+  { id: 'settings', label: 'Settings', hint: 'motion and export', Icon: SlidersIcon },
 ]
 
 /**
@@ -87,19 +90,32 @@ export function Sidebar({ variant = 'rail' }: SidebarProps) {
             'absolute left-5 top-1/2 z-10 hidden flex-col items-center gap-1 rounded-2xl bg-white p-1.5 shadow-[0_1px_2px_rgba(9,9,11,0.05),0_8px_24px_-8px_rgba(9,9,11,0.10)] ring-1 ring-zinc-950/[0.04] lg:flex',
       )}
     >
-      {TABS.map(({ id, label, Icon }) => {
+      {TABS.map(({ id, label, hint, Icon }) => {
         const active = tab === id
         return (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            title={label}
             aria-label={label}
             aria-current={active}
             className={cn(
-              'relative flex items-center justify-center rounded-xl outline-none',
+              /*
+               * `focus-visible:` rather than `focus:` so the ring appears for
+               * keyboard users and not on every mouse click. `outline-none` alone
+               * was removing the focus indicator with nothing put back, which left
+               * tabbing through the rail completely invisible.
+               *
+               * The pointer cursor is global, in `index.css` — Tailwind v4's
+               * preflight sets `button { cursor: default }`, so it had to be put
+               * back somewhere, and every button in the app wanted it.
+               */
+              'group relative flex items-center justify-center rounded-xl outline-none',
+              'focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2',
               bar ? 'h-10 flex-1 gap-2' : 'h-10 w-10',
+              // Something under the pointer before the click, so an inactive icon
+              // reads as a target rather than as decoration.
+              !active && (bar ? 'hover:bg-white/60' : 'hover:bg-zinc-100'),
             )}
           >
             {active && (
@@ -126,7 +142,7 @@ export function Sidebar({ variant = 'rail' }: SidebarProps) {
                   ? bar
                     ? 'text-zinc-900'
                     : 'text-white'
-                  : 'text-zinc-400 hover:text-zinc-700',
+                  : 'text-zinc-400 group-hover:text-zinc-700',
               )}
             />
             {/* The rail has room only for an icon; the bar has room for a word,
@@ -139,6 +155,21 @@ export function Sidebar({ variant = 'rail' }: SidebarProps) {
                 )}
               >
                 {label}
+              </span>
+            )}
+            {/*
+              The rail's label, on hover or keyboard focus.
+              This replaces the native `title` attribute, which waited about a
+              second before saying anything and couldn't carry the hint. Rail-only:
+              the bar prints its label already, and the rail is `lg:` and up, so
+              there's no touch device to leave a sticky hover behind on.
+            */}
+            {!bar && (
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-20 -translate-y-1/2 scale-95 whitespace-nowrap rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11.5px] font-medium text-white opacity-0 shadow-lg transition duration-150 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100"
+              >
+                {label} <span className="text-zinc-400">· {hint}</span>
               </span>
             )}
           </button>

@@ -36,6 +36,16 @@ label,
   touch-action: manipulation;
 }
 
+/* Tailwind v4's preflight sets `button { cursor: default }` — the spec default,
+   and a deliberate change from v3, which used `pointer`. Every button in this app
+   is a real control, so the v3 behaviour is the correct one here; without this the
+   sidebar rail, the export buttons and the panel headers all failed to announce
+   themselves as clickable. `:not(:disabled)` so a disabled export button (there is
+   one, mid-render) still reads as unavailable. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* Thin, unobtrusive scrollbar for the control panel. */
 .scroll-slim {
   scrollbar-width: thin;

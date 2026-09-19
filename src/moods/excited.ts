@@ -10,14 +10,18 @@
  */
 
 import type { MoodDef } from '../core/types'
-import { EYE } from '../core/face'
+
 
 export const excited = {
   id: 'excited',
   label: 'Excited',
   face: {
-    left: { ...EYE.open, ry: 14.4, cy: 97 },
-    right: { ...EYE.open, ry: 14.4, cy: 97 },
+    // Spelled out rather than built from `EYE.open`, because the preset's
+    // `sq: 3.2` is precisely the rounded-square this mood is supposed to be the
+    // exception to. Borrowing it made Excited a slightly taller Neutral — and a
+    // near-twin of Curious, which is also built on the same preset.
+    left: { rx: 15, ry: 14.4, sq: 2.05, cy: 97, op: 1, arc: { op: 0 } },
+    right: { rx: 15, ry: 14.4, sq: 2.05, cy: 97, op: 1, arc: { op: 0 } },
     blush: 0.6,
   },
   // The fastest breathing of any mood, plus a hop once per loop.

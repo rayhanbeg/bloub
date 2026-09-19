@@ -6,7 +6,7 @@ import { navigate, ROUTES } from '../utils/navigation'
 import type { BlobConfig } from '../core/types'
 
 const GITHUB = 'https://github.com/rayhanbeg/blouband'
-const INSTAGRAM = 'https://www.instagram.com/md_rayha_n/'
+const TWITTER = 'https://x.com/md_rayha_n'
 
 const showcase: Array<{ label: string; config: BlobConfig; className: string }> = [
   { label: 'Curious cloud', config: { shape: 'cloud', mood: 'curious', color: '#111113' }, className: 'rotate-[-7deg]' },
@@ -90,7 +90,14 @@ export function LandingPage() {
           <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 110, damping: 20, delay: 0.08 }} className="relative mx-auto aspect-square w-full max-w-[480px]">
             <div aria-hidden className="absolute inset-[6%] rounded-full border border-dashed border-zinc-200" />
             <div aria-hidden className="absolute inset-[18%] rounded-full bg-zinc-100" />
-            <BlobPreview config={{ shape: 'pebble', mood: 'excited', color: '#111113' }} size="100%" follow className="relative z-[1]" />
+            {/*
+              Curious, not Excited. The mismatched eye heights are the most
+              expressive thing in the whole set — they read as a face still
+              adjusting to what it's looking at, which is the right first
+              impression, and they pair well with the cursor tracking: an eye
+              that's already peering has somewhere to peer *at*.
+            */}
+            <BlobPreview config={{ shape: 'pebble', mood: 'curious', color: '#111113' }} size="100%" follow className="relative z-[1]" />
             <span className="absolute bottom-[10%] right-[2%] rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[11px] font-medium text-zinc-600 shadow-sm">alive, a little</span>
           </motion.div>
         </section>
@@ -150,7 +157,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="bg-zinc-950 text-zinc-400"><div className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-white/10 px-5 py-6 text-[11.5px] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10"><span>Developed by Rayhan</span><div className="flex flex-wrap gap-x-4 gap-y-1"><a href={GITHUB} target="_blank" rel="noreferrer" className="hover:text-white">GitHub</a><a href={INSTAGRAM} target="_blank" rel="noreferrer" className="hover:text-white">Instagram</a></div></div></footer>
+      <footer className="bg-zinc-950 text-zinc-400"><div className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-white/10 px-5 py-6 text-[11.5px] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10"><span>Developed by Rayhan</span><div className="flex flex-wrap gap-x-4 gap-y-1"><a href={GITHUB} target="_blank" rel="noreferrer" className="hover:text-white">GitHub</a><a href={TWITTER} target="_blank" rel="noreferrer" className="hover:text-white">Twitter</a></div></div></footer>
     </div>
   )
 }

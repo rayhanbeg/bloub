@@ -22,7 +22,7 @@
  */
 
 import { featureColor } from './geometry'
-import { facePlacementTransform } from './face'
+import { facePlacementTransform, LID_FLOOR } from './face'
 import { facePrimitives, primitivesToMarkup, VIEWBOX } from './generateBlob'
 import type { PaintRole, Primitive } from './generateBlob'
 import { EXPORT_BLINK_PHASE, exportBlinkAt, idleAt } from './idle'
@@ -70,9 +70,10 @@ function cssBodyTransform(s: IdleState, c = VIEWBOX / 2): string {
 
 /** A vertical squash about an arbitrary point — how an eye blinks. */
 function cssBlinkTransform(cx: number, cy: number, k: number): string {
-  // Match the live/GIF minimum lid height: a blink compresses the same two eye
-  // shapes but never turns either one into a hairline.
-  const open = Math.max(k, 0.58)
+  // `LID_FLOOR` rather than a local constant: the preview's `blinkRy` now floors
+  // the lid at the same *fraction* of the eye's own height, so this scaleY and
+  // that path rebuild agree exactly instead of by about 4%.
+  const open = Math.max(k, LID_FLOOR)
   return `translate(${r(cx)}px,${r(cy)}px) scaleY(${r(open)}) translate(${r(-cx)}px,${r(-cy)}px)`
 }
 
@@ -136,6 +137,7 @@ function namespace(config: BlobConfig): string {
  *     g.gaze → gaze drift                          (both eyes)
  *       g.eyeL → blink                             (left eye + arc)
  *       g.eyeR → blink
+ *     g.brow → half the gaze drift                 (both brows, if any)
  * ```
  */
 export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOptions = {}): string {
@@ -177,6 +179,7 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
   )
 
   const gazes = motion.gazeX !== 0 || motion.gazeY !== 0 || motion.gazeBias !== 0
+  const hasBrows = face.left.brow.op > 0.002 || face.right.brow.op > 0.002
   if (gazes) {
     add(
       cls.gaze,
@@ -185,10 +188,15 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
         return `translate(${r(s.gazeX)}px,${r(s.gazeY)}px)`
       }),
     )
-    add(
-      cls.brow,
-      sampleTrack(24, (phase) => `translate(${r(idleAt(phase, motion).gazeX * 0.5)}px,0px)`),
-    )
+    // Only worth a track if there is a brow to move. This used to be added
+    // unconditionally, and since nothing ever carried the class it was pure dead
+    // weight in every exported file.
+    if (hasBrows) {
+      add(
+        cls.brow,
+        sampleTrack(24, (phase) => `translate(${r(idleAt(phase, motion).gazeX * 0.5)}px,0px)`),
+      )
+    }
   }
 
   const blinks = motion.blinkDepth > 0.01
@@ -216,12 +224,23 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
   // Depth just controls pretty-print indentation; each optional wrapper that is
   // skipped pulls its children one level out.
   const eyeDepth = 2 + (gazes ? 1 : 0) + (blinks ? 1 : 0)
+  // The arc rides inside the blink group with the eye it belongs to: for a
+  // closed-eye mood the arc *is* the eye, so it has to blink too.
   const eyeBlock = blinks
-    ? wrap(cls.eyeL, eyeDepth - 1, paths(['left.eye'], eyeDepth)) +
-      wrap(cls.eyeR, eyeDepth - 1, paths(['right.eye'], eyeDepth))
-    : paths(['left.eye'], eyeDepth) + paths(['right.eye'], eyeDepth)
+    ? wrap(cls.eyeL, eyeDepth - 1, paths(['left.eye', 'left.arc'], eyeDepth)) +
+      wrap(cls.eyeR, eyeDepth - 1, paths(['right.eye', 'right.arc'], eyeDepth))
+    : paths(['left.eye', 'left.arc'], eyeDepth) + paths(['right.eye', 'right.arc'], eyeDepth)
 
-  const faceInner = gazes ? wrap(cls.gaze, 2, eyeBlock) : eyeBlock
+  // Brows sit outside the blink groups — a blink shouldn't squash them — and
+  // outside the gaze group, because they track it at only half strength.
+  const browDepth = 2 + (gazes && hasBrows ? 1 : 0)
+  const browBlock = hasBrows
+    ? gazes
+      ? wrap(cls.brow, browDepth - 1, paths(['left.brow', 'right.brow'], browDepth))
+      : paths(['left.brow', 'right.brow'], browDepth)
+    : ''
+
+  const faceInner = (gazes ? wrap(cls.gaze, 2, eyeBlock) : eyeBlock) + browBlock
 
   const fit = facePlacementTransform(shapeFacePlacement(config.shape))
   const faceGroup = faceInner

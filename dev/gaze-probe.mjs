@@ -114,8 +114,12 @@ let last = null
 const SAMPLER = `(() => {
   const svg = document.querySelector('svg[aria-label$="blob"]')
   if (!svg) return 'no blob'
-  const eyes = [...svg.querySelectorAll('g g path')]
-  if (eyes.length !== 2) return 'expected 2 eye paths, got ' + eyes.length
+  // Each eye now mounts three bands — the filled ball, the '^' arc and the brow —
+  // with the unused ones sitting at zero opacity, so the ball has to be asked for
+  // by name. Fine for these two surfaces: the hero and the editor default are both
+  // open-eyed moods, whose gaze the ball carries.
+  const eyes = [...svg.querySelectorAll('path[data-part="eye"]')]
+  if (eyes.length !== 2) return 'expected 2 eye balls, got ' + eyes.length
   window.__gaze = []
   const t0 = performance.now()
   const tick = () => {
@@ -159,7 +163,7 @@ for (const [label, url] of [['landing hero', `${base}/`], ['editor stage', `${ba
   for (let i = 0; i < 40; i++) {
     await sleep(400)
     try {
-      if (await evaluate(`!!document.querySelector('svg[aria-label$="blob"] g g path')`)) break
+      if (await evaluate(`!!document.querySelector('svg[aria-label$="blob"] path[data-part="eye"]')`)) break
     } catch { /* context swapping */ }
   }
   await sleep(2600) // the intro and the camera reveal, where there is one
@@ -242,8 +246,8 @@ for (const [label, url] of [['landing hero', `${base}/`], ['editor stage', `${ba
     `${frames} frames to 90% (${from.toFixed(2)} → ${to.toFixed(2)}), largest step ${step.toFixed(2)}`,
   )
 
-  // 5 ─ Still blinks while tracking. The lid floors at 8.2 against an open 13.2,
-  //     so a full blink reads as ~62% of the open bbox height, never as a line.
+  // 5 ─ Still blinks while tracking. The lid floors at 62% of that eye's own open
+  //     height (`LID_FLOOR`), so a full blink reads as a squat lens, never a line.
   //     Sampling runs until a blink lands rather than for a fixed window: moods
   //     blink every 2.6–6s with jitter on top, and a two-second look is a coin
   //     flip, which is how this check passed once and failed once unchanged.
@@ -308,7 +312,7 @@ await send('Page.navigate', { url: `${base}/editor` }, sessionId)
 for (let i = 0; i < 40; i++) {
   await sleep(400)
   try {
-    if (await evaluate(`!!document.querySelector('svg[aria-label$="blob"] g g path')`)) break
+    if (await evaluate(`!!document.querySelector('svg[aria-label$="blob"] path[data-part="eye"]')`)) break
   } catch { /* context swapping */ }
 }
 await sleep(2600)

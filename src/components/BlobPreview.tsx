@@ -21,7 +21,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
 import { curvePath, featureColor, superellipsePath } from '../core/geometry'
-import { FACE_ORIGIN, blinkRy } from '../core/face'
+import { FACE_ORIGIN, blinkBend, blinkRy, blinkThick } from '../core/face'
 import { VIEWBOX } from '../core/generateBlob'
 import { scope, useFaceMotion } from '../animation/useFaceMotion'
 import { useShapeMorph } from '../animation/useShapeMorph'
@@ -73,7 +73,49 @@ function Eye({ get, features, blink, gazeX, gazeY }: EyeProps) {
     },
   )
 
-  void useTransform(
+  /**
+   * The `^` form of the eye — a closed, upward-curving lid.
+   *
+   * Twelve moods ask for this instead of the filled ball (Happy, Laughing,
+   * Blissful, Proud, Grateful, Love-struck, Playful, Winking's shut eye…), and
+   * for a long time none of them got one: the primitive existed in `geometry.ts`,
+   * `EYE.closed` described it, `blinkBend`/`blinkThick` were written for it, and
+   * nothing rendered it. They all fell back to the ball, which is why every
+   * closed-eye mood in the set showed two identical short bars.
+   *
+   * It blinks by flattening rather than by squashing — the arch relaxes toward
+   * straight and the band thins — because there is no height to squash.
+   */
+  const arc = useTransform(
+    [
+      cx,
+      cy,
+      get('arc.dx'),
+      get('arc.dy'),
+      get('arc.w'),
+      get('arc.bend'),
+      get('arc.thick'),
+      get('arc.wave'),
+      get('arc.rot'),
+      blink,
+      gazeX,
+      gazeY,
+    ],
+    (v: number[]) => {
+      const [x, y, dx, dy, w, bend, thick, wave, rot, b, gx, gy] = v
+      return curvePath({
+        cx: x + dx + gx,
+        cy: y + dy + gy,
+        w,
+        bend: blinkBend(bend, b),
+        thick: blinkThick(thick, b),
+        wave,
+        rot,
+      })
+    },
+  )
+
+  const brow = useTransform(
     [
       cx,
       cy,
@@ -94,10 +136,21 @@ function Eye({ get, features, blink, gazeX, gazeY }: EyeProps) {
     },
   )
 
-  return <motion.path d={ball} fill={features} opacity={get('op')} />
+  /*
+   * All three are always mounted, and the ones a mood doesn't use sit at zero
+   * opacity. That's the whole reason a mood change can cross-fade an open eye
+   * into a squinting arc: both shapes are on screen and both are already moving.
+   * `data-part` is for the dev probes, which need to find the ball among them.
+   */
+  return (
+    <>
+      <motion.path data-part="eye" d={ball} fill={features} opacity={get('op')} />
+      <motion.path data-part="arc" d={arc} fill={features} opacity={get('arc.op')} />
+      <motion.path data-part="brow" d={brow} fill={features} opacity={get('brow.op')} />
+    </>
+  )
 }
 
-/** Blush, tear and sweat — fixed geometry, opacity-driven. */
 export interface BlobPreviewProps {
   config: BlobConfig
   /**

@@ -61,7 +61,7 @@ export function usePointerGaze(enabled: boolean): PointerTracking {
     // scope, and asking for the return type sidesteps having to care.
     let forget: ReturnType<typeof setTimeout> | undefined
 
-    const look = (event: PointerEvent) => {
+    const look = (clientX: number, clientY: number) => {
       const el = ref.current
       if (!el) return
       const box = el.getBoundingClientRect()
@@ -78,8 +78,8 @@ export function usePointerGaze(enabled: boolean): PointerTracking {
       const faceY = box.top + (box.height * FACE_ORIGIN.y) / VIEWBOX
 
       const target = gazeToward(
-        (event.clientX - faceX) / (box.width / 2),
-        (event.clientY - faceY) / (box.height / 2),
+        (clientX - faceX) / (box.width / 2),
+        (clientY - faceY) / (box.height / 2),
       )
       gaze.x = target.x
       gaze.y = target.y
@@ -103,26 +103,44 @@ export function usePointerGaze(enabled: boolean): PointerTracking {
     }
 
     /*
-     * A finger is only *there* while it's down, so touch hands the gaze back on
-     * release: tracking a drag is a nice surprise, a gaze frozen where the last
-     * tap landed is not. A mouse doesn't leave when its button does.
+     * Mouse and pen only.
+     *
+     * A finger goes through `touchmove` below instead, because Chrome fires
+     * `pointercancel` the instant a touch gesture is claimed by a scroller — even
+     * when there is nothing to scroll. Left to pointer events, a phone tracked
+     * exactly as far as the ~8px touch slop and then gave up, which measured as no
+     * tracking at all.
      */
-    const release = (event: PointerEvent) => {
-      if (event.pointerType !== 'mouse') away()
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
+      look(event.clientX, event.clientY)
     }
 
-    window.addEventListener('pointermove', look, { passive: true })
-    window.addEventListener('pointerup', release, { passive: true })
-    window.addEventListener('pointercancel', away, { passive: true })
+    /*
+     * `touchmove` keeps firing through a scroll, so the blob glances at your finger
+     * as you swipe past it. Passive, so watching costs the scroller nothing.
+     */
+    const onTouchMove = (event: TouchEvent) => {
+      const finger = event.touches[0]
+      if (finger) look(finger.clientX, finger.clientY)
+    }
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    // A finger is only *there* while it's down: tracking a drag is a small
+    // delight, a gaze frozen where the last tap landed is not.
+    window.addEventListener('touchend', away, { passive: true })
+    window.addEventListener('touchcancel', away, { passive: true })
     // Off the window, or off the tab, both count as looking away.
     document.addEventListener('mouseleave', away)
     window.addEventListener('blur', away)
 
     return () => {
       away()
-      window.removeEventListener('pointermove', look)
-      window.removeEventListener('pointerup', release)
-      window.removeEventListener('pointercancel', away)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', away)
+      window.removeEventListener('touchcancel', away)
       document.removeEventListener('mouseleave', away)
       window.removeEventListener('blur', away)
     }

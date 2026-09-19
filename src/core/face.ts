@@ -156,22 +156,47 @@ function deepMerge<T>(base: T, over: DeepPartial<T> | undefined): T {
 }
 
 /**
- * Keep filled eyes within the canonical Bloub family even for legacy mood
- * definitions that predate the shared presets. Closed arc eyes remain arcs;
- * open eyes stay soft, consistently sized pills rather than becoming dots,
- * circles, or very tall capsules.
+ * Outer rails for an eye's geometry.
+ *
+ * TypeScript note: `as const` freezes this literal, so `rx` is typed as the
+ * *tuple* `readonly [7, 15]` rather than the looser `number[]`. That's what lets
+ * `clamp` below destructure it into a guaranteed `[min, max]` pair.
  */
-function normalizeOpenEye(eye: EyeSpec): EyeSpec {
-  const closed = eye.op <= 0.002 || eye.arc.op > 0.5
-  const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max)
+const EYE_BOUNDS = {
+  rx: [7, 15],
+  ry: [2.2, 18.4],
+  /** 2 is a true ellipse; much past 4 the corners stop reading as soft. */
+  sq: [2, 4],
+} as const
+
+/**
+ * Fence a mood's eye numbers in — rails, not a rewrite.
+ *
+ * This function used to *overwrite* `rx` with 14, `sq` with 3.2 and `op` with 1,
+ * and squeeze `ry` into a six-unit band. That guaranteed the house style, and it
+ * also made thirty-nine moods render as about three: every eye in the set came
+ * out 14 wide at exponent 3.2, and twenty-eight of the thirty-nine landed on one
+ * of exactly *two* heights. Sleepy asked for a 3.6-unit slit and drew the same
+ * shape as Bored, Angry and Unimpressed. Curious asked for one eye standing 16.2
+ * tall against the other's 11.8 — the height mismatch its own file calls "the
+ * whole expression" — and got clamped to 14.4, most of the way back to matching.
+ *
+ * So the bounds above only stop something absurd. They're wide enough that every
+ * authored mood passes through untouched except Amazed, whose 20.4 is taller than
+ * the face has room for; they exist to keep a future mood from rendering as a dot
+ * or a hard rectangle, not to have opinions about expression.
+ *
+ * Pupils stay off. They're a second shape inside the eye, and one clean
+ * feature-colour silhouette per eye is the style.
+ */
+function railEye(eye: EyeSpec): EyeSpec {
+  const clamp = (value: number, [min, max]: readonly [number, number]): number =>
+    Math.min(Math.max(value, min), max)
   return {
     ...eye,
-    rx: 14,
-    ry: closed ? 8.6 : clamp(eye.ry, 8.6, 14.4),
-    sq: 3.2,
-    op: 1,
-    arc: { ...eye.arc, op: 0 },
-    brow: { ...eye.brow, op: 0 },
+    rx: clamp(eye.rx, EYE_BOUNDS.rx),
+    ry: clamp(eye.ry, EYE_BOUNDS.ry),
+    sq: clamp(eye.sq, EYE_BOUNDS.sq),
     pupil: { ...eye.pupil, op: 0 },
   }
 }
@@ -181,8 +206,10 @@ export function resolveFace(override: DeepPartial<FaceSpec>): FaceSpec {
   const face = deepMerge(NEUTRAL_FACE, override)
   return {
     ...face,
-    left: normalizeOpenEye(face.left),
-    right: normalizeOpenEye(face.right),
+    left: railEye(face.left),
+    right: railEye(face.right),
+    // The garnishes stay off for now: they're body-level decoration rather than
+    // eye geometry, and the eyes are meant to carry every mood on their own.
     blush: 0,
     tear: { ...face.tear, op: 0 },
     sweat: { ...face.sweat, op: 0 },
@@ -221,7 +248,25 @@ export const FACE_KEYS: readonly string[] = Object.keys(flattenFace(NEUTRAL_FACE
  * valid path, but browsers and rasterisers disagree about how to render one, and
  * a hairline that reopens is indistinguishable from nothing at this size.
  */
-export const blinkRy = (ry: number, b: number): number => Math.max(ry * b, 8.2)
+
+/**
+ * How far a lid can close, as a fraction of that eye's *own* open height.
+ *
+ * This used to be an absolute 8.2 units, which was the right number for exactly
+ * one eye: the neutral 13.2-tall one, of which 8.2 is 62%. It only looked correct
+ * because every mood was being resized to 13.2 before it got here. Now that a
+ * mood can ask for a 3.6-unit slit, an absolute floor would *inflate* that eye to
+ * 8.2 and quietly undo the thing that makes Sleepy look sleepy.
+ *
+ * Proportional keeps the original intent — a shut eye is a squat lens, never a
+ * hairline — and makes it true of every eye rather than one of them. It's also
+ * what the animated-SVG exporter was already doing, since a CSS `scaleY` is
+ * proportional by construction.
+ */
+export const LID_FLOOR = 0.62
+
+export const blinkRy = (ry: number, b: number): number =>
+  Math.max(ry * Math.max(b, LID_FLOOR), 1.2)
 export const blinkBend = (bend: number, b: number): number => bend * b
 export const blinkThick = (thick: number, b: number): number =>
   Math.max(thick * (0.35 + 0.65 * b), 0.3)

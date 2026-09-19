@@ -62,8 +62,27 @@ await new Promise((resolve, reject) => {
 
 let nextId = 0
 const pending = new Map()
+/**
+ * Anything the page complained about. Without this a module that throws during
+ * import renders an empty `#root`, and the only symptom the runner sees is a
+ * blank white screenshot — indistinguishable from a page that simply hasn't
+ * painted yet.
+ */
+const complaints = []
+const preview = (arg) =>
+  arg.description ?? (arg.value !== undefined ? String(arg.value) : (arg.className ?? arg.type))
+
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data)
+  if (msg.method === 'Runtime.exceptionThrown') {
+    const d = msg.params.exceptionDetails
+    complaints.push(`uncaught: ${d.exception?.description ?? d.text}`)
+    return
+  }
+  if (msg.method === 'Runtime.consoleAPICalled' && /error|warning|assert/.test(msg.params.type)) {
+    complaints.push(`console.${msg.params.type}: ${msg.params.args.map(preview).join(' ')}`)
+    return
+  }
   const entry = msg.id && pending.get(msg.id)
   if (!entry) return
   pending.delete(msg.id)
@@ -105,7 +124,12 @@ const evaluate = async (expression) => {
     { expression, returnByValue: true, awaitPromise: true },
     sessionId,
   )
-  if (res.exceptionDetails) throw new Error(res.exceptionDetails.text)
+  // `.text` is almost always the bare word "Uncaught"; the message and stack live
+  // on the thrown object's description, so prefer that when it's there.
+  if (res.exceptionDetails) {
+    const { text, exception } = res.exceptionDetails
+    throw new Error(exception?.description ?? exception?.value ?? text)
+  }
   return res.result.value
 }
 
@@ -128,10 +152,18 @@ const readout = await evaluate(`
 `)
 console.log(`title=${title || '(never settled)'}  after ${Math.round((Date.now() - startedAt) / 1000)}s\n`)
 if (readout) console.log(readout)
+if (complaints.length) console.log(`\npage errors (${complaints.length}):\n  ${complaints.join('\n  ')}`)
 
 if (shot) {
   // Give the page a beat to paint after the viewport override before capturing.
   await sleep(Number(process.env.SHOTDELAY ?? 2000))
+  // EXEC runs one expression in the page just before the capture — enough to set
+  // up a state the screenshot is meant to show (a hover, an open panel) without
+  // needing a whole probe file for it.
+  if (process.env.EXEC) {
+    console.log(`exec → ${JSON.stringify(await evaluate(process.env.EXEC))}`)
+    await sleep(Number(process.env.EXECDELAY ?? 400))
+  }
   const { data } = await send('Page.captureScreenshot', {}, sessionId)
   writeFileSync(shot, Buffer.from(data, 'base64'))
   console.log(`\nscreenshot → ${shot}`)

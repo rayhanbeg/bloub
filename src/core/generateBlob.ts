@@ -6,9 +6,9 @@
  * system serialises, and what a future standalone package would expose.
  */
 
-import { featureColor, superellipsePath } from './geometry'
+import { curvePath, featureColor, superellipsePath } from './geometry'
 import { facePlacementTransform } from './face'
-import type { BlobConfig, EyeSpec, FacePlacement, FaceSpec } from './types'
+import type { BlobConfig, CurveSpec, EyeSpec, FacePlacement, FaceSpec } from './types'
 import { moodFace } from '../moods'
 import { shapeFacePlacement, shapePath } from '../shapes'
 
@@ -28,6 +28,26 @@ export interface Primitive {
   op: number
 }
 
+/**
+ * A curve band anchored to an eye. `arc` is the `^ ^` form of the eye itself;
+ * `brow` sits above it. Both are the same primitive, positioned relative to the
+ * eye's centre so a gaze shift carries them along.
+ */
+const curvePrimitive = (eye: EyeSpec, curve: CurveSpec, key: string): Primitive => ({
+  key,
+  d: curvePath({
+    cx: eye.cx + curve.dx,
+    cy: eye.cy + curve.dy,
+    w: curve.w,
+    bend: curve.bend,
+    thick: curve.thick,
+    wave: curve.wave,
+    rot: curve.rot,
+  }),
+  paint: 'features',
+  op: curve.op,
+})
+
 const eyePrimitives = (eye: EyeSpec, side: string): Primitive[] => [
   {
     key: `${side}.eye`,
@@ -42,6 +62,8 @@ const eyePrimitives = (eye: EyeSpec, side: string): Primitive[] => [
     paint: 'features',
     op: eye.op,
   },
+  curvePrimitive(eye, eye.arc, `${side}.arc`),
+  curvePrimitive(eye, eye.brow, `${side}.brow`),
 ]
 
 /**
@@ -49,7 +71,12 @@ const eyePrimitives = (eye: EyeSpec, side: string): Primitive[] => [
  * definition of "what a face is made of" — the live preview animates these same
  * pieces, and the exporters serialise them.
  *
- * The canonical face consists exclusively of the two eye primitives.
+ * A face is two eyes, and each eye is up to three bands: the filled superellipse,
+ * the `^`-shaped arc that replaces it when the eye closes into a smile, and an
+ * optional brow. Most moods use one of the first two and no brow, and
+ * {@link primitivesToMarkup} drops whatever sits at zero opacity — but all six are
+ * always *computed*, which is what lets a mood change cross-fade an open eye into
+ * an arc instead of cutting between them.
  */
 export function facePrimitives(face: FaceSpec): Primitive[] {
   return [
