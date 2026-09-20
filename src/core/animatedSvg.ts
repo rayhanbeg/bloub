@@ -25,7 +25,7 @@ import { featureColor } from './geometry'
 import { facePlacementTransform, LID_FLOOR } from './face'
 import { facePrimitives, primitivesToMarkup, VIEWBOX } from './generateBlob'
 import type { PaintRole, Primitive } from './generateBlob'
-import { EXPORT_BLINK_PHASE, exportBlinkAt, idleAt } from './idle'
+import { EXPORT_BLINK_PHASE, exportBlinkAt, idleAt, SACCADE_HARMONIC } from './idle'
 import type { IdleState, MoodMotion } from './idle'
 import type { BlobConfig } from './types'
 import { moodFace, moodMotion } from '../moods'
@@ -46,12 +46,24 @@ const r = (v: number): number => Math.round(v * 1000) / 1000
 const pct = (v: number): string => `${Math.round(v * 1e4) / 1e2}%`
 
 /**
+ * How many samples the gaze track needs.
+ *
+ * The micro-saccades reach harmonic 11, and four samples per oscillation is the
+ * same floor the tremble uses below — under it the flicker aliases into a slow,
+ * wrong-looking wander rather than simply losing detail.
+ */
+const GAZE_SAMPLES = SACCADE_HARMONIC * 4
+
+/**
  * How many samples the body's keyframe track needs.
  *
  * A 24-step track is plenty for breathing, but a tremble at harmonic 30 is 30
  * oscillations per loop — sampling that 24 times would alias it into a slow
  * wobble. Four samples per oscillation is the floor for it to still read as a
  * vibration, and the whole track is only ~90 bytes per step.
+ *
+ * The gaze lean rides in this track too, but deliberately carries no saccade —
+ * see `idleAt` — so the baseline stays where it was.
  */
 function bodySamples(m: MoodMotion): number {
   const needed = m.tremble === 0 ? 24 : Math.ceil(m.trembleHarmonic * 4)
@@ -178,25 +190,30 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
     sampleTrack(bodySamples(motion), (phase) => cssBodyTransform(idleAt(phase, motion))),
   )
 
-  const gazes = motion.gazeX !== 0 || motion.gazeY !== 0 || motion.gazeBias !== 0
   const hasBrows = face.left.brow.op > 0.002 || face.right.brow.op > 0.002
-  if (gazes) {
+
+  /*
+   * Unconditional now. This used to be gated on the mood actually declaring a
+   * gaze drift, which was right until `idleAt` grew micro-saccades: those run for
+   * every mood, so a gated track meant the preview flickered and the exported
+   * file sat perfectly still — exactly the preview/export split this codebase
+   * exists to avoid.
+   */
+  add(
+    cls.gaze,
+    sampleTrack(GAZE_SAMPLES, (phase) => {
+      const s = idleAt(phase, motion)
+      return `translate(${r(s.gazeX)}px,${r(s.gazeY)}px)`
+    }),
+  )
+  // Only worth a track if there is a brow to move. This used to be added
+  // unconditionally, and since nothing ever carried the class it was pure dead
+  // weight in every exported file.
+  if (hasBrows) {
     add(
-      cls.gaze,
-      sampleTrack(24, (phase) => {
-        const s = idleAt(phase, motion)
-        return `translate(${r(s.gazeX)}px,${r(s.gazeY)}px)`
-      }),
+      cls.brow,
+      sampleTrack(GAZE_SAMPLES, (phase) => `translate(${r(idleAt(phase, motion).gazeX * 0.5)}px,0px)`),
     )
-    // Only worth a track if there is a brow to move. This used to be added
-    // unconditionally, and since nothing ever carried the class it was pure dead
-    // weight in every exported file.
-    if (hasBrows) {
-      add(
-        cls.brow,
-        sampleTrack(24, (phase) => `translate(${r(idleAt(phase, motion).gazeX * 0.5)}px,0px)`),
-      )
-    }
   }
 
   const blinks = motion.blinkDepth > 0.01
@@ -222,8 +239,9 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
   }
 
   // Depth just controls pretty-print indentation; each optional wrapper that is
-  // skipped pulls its children one level out.
-  const eyeDepth = 2 + (gazes ? 1 : 0) + (blinks ? 1 : 0)
+  // skipped pulls its children one level out. The gaze wrapper is no longer
+  // optional — every mood saccades — so only the blink group can collapse here.
+  const eyeDepth = 3 + (blinks ? 1 : 0)
   // The arc rides inside the blink group with the eye it belongs to: for a
   // closed-eye mood the arc *is* the eye, so it has to blink too.
   const eyeBlock = blinks
@@ -233,14 +251,9 @@ export function generateAnimatedSvg(config: BlobConfig, options: AnimatedSvgOpti
 
   // Brows sit outside the blink groups — a blink shouldn't squash them — and
   // outside the gaze group, because they track it at only half strength.
-  const browDepth = 2 + (gazes && hasBrows ? 1 : 0)
-  const browBlock = hasBrows
-    ? gazes
-      ? wrap(cls.brow, browDepth - 1, paths(['left.brow', 'right.brow'], browDepth))
-      : paths(['left.brow', 'right.brow'], browDepth)
-    : ''
+  const browBlock = hasBrows ? wrap(cls.brow, 2, paths(['left.brow', 'right.brow'], 3)) : ''
 
-  const faceInner = (gazes ? wrap(cls.gaze, 2, eyeBlock) : eyeBlock) + browBlock
+  const faceInner = wrap(cls.gaze, 2, eyeBlock) + browBlock
 
   const fit = facePlacementTransform(shapeFacePlacement(config.shape))
   const faceGroup = faceInner

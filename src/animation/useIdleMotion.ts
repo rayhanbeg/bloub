@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useAnimationFrame, useMotionValue } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
-import { blinkAmount, DEFAULT_MOTION, idleAt, idleTransform } from '../core/idle'
+import { blinkAmount, DEFAULT_MOTION, gazeLean, idleAt, idleTransform } from '../core/idle'
 import type { MoodMotion } from '../core/idle'
 import { INTRO_DURATION, INTRO_FACE_DELAY, introAt } from '../core/intro'
 import { moodMotion } from '../moods'
@@ -99,6 +99,8 @@ export function useIdleMotion({
   const blinkStart = useRef(-999)
   const nextBlink = useRef(1.5)
   const elapsed = useRef(0)
+  /** True while the second half of a double blink is still pending. */
+  const pairedBlink = useRef(false)
 
   /**
    * The smoothed pointer gaze, and how much of the gaze it currently owns.
@@ -159,8 +161,6 @@ export function useIdleMotion({
       state.scaleY *= 1 - k * 0.06
     }
 
-    bodyRef.current?.setAttribute('transform', idleTransform(state))
-
     /*
      * The ambient gaze: where the eyes rest when nothing is scripting them. That's
      * the idle drift, crossfaded with the cursor if there's a cursor to watch.
@@ -173,6 +173,22 @@ export function useIdleMotion({
     const ambientX = state.gazeX * (1 - w.weight) + w.x * w.weight
     const ambientY = state.gazeY * (1 - w.weight) + w.y * w.weight
 
+    let finalX = ambientX
+    let finalY = ambientY
+
+    /*
+     * Where the body should lean.
+     *
+     * `gazeLean` is linear in the gaze, so crossfading the two *leans* gives
+     * exactly the lean of the crossfaded gaze — which lets this work from
+     * `state.lean` alone, with no need for `idleAt` to also hand back the
+     * saccade-free gaze it was computed from.
+     */
+    const cursorLean = gazeLean(w.x, w.y)
+    let leanTx = state.lean.tx * (1 - w.weight) + cursorLean.tx * w.weight
+    let leanTy = state.lean.ty * (1 - w.weight) + cursorLean.ty * w.weight
+    let leanRot = state.lean.rotate * (1 - w.weight) + cursorLean.rotate * w.weight
+
     // For its first couple of seconds on screen the intro owns the eyes: it holds
     // them in a squint through the camera's close-up, opens them as the blob
     // comes into focus, walks them left and right, and blinks once. Breathing
@@ -181,29 +197,62 @@ export function useIdleMotion({
     // its turn inside that same handover; nobody interrupts an entrance.
     if (intro && elapsed.current < INTRO_FACE_DELAY + INTRO_DURATION) {
       const scripted = introAt(elapsed.current - INTRO_FACE_DELAY)
-      gazeX.set(scripted.gazeX + ambientX * scripted.idleMix)
-      gazeY.set(scripted.gazeY + ambientY * scripted.idleMix)
+      finalX = scripted.gazeX + ambientX * scripted.idleMix
+      finalY = scripted.gazeY + ambientY * scripted.idleMix
+      // The entrance gets a body to go with it: mixed the same way the gaze is,
+      // so the blob leans into its own first look around rather than performing
+      // it from the neck up.
+      const scriptedLean = gazeLean(scripted.gazeX, scripted.gazeY)
+      leanTx = scriptedLean.tx + leanTx * scripted.idleMix
+      leanTy = scriptedLean.ty + leanTy * scripted.idleMix
+      leanRot = scriptedLean.rotate + leanRot * scripted.idleMix
       blink.set(scripted.blink)
       // Hold the random schedule off until the intro is done, so its deliberate
       // blink isn't stepped on by an idle one landing at the same moment.
       nextBlink.current = Math.max(nextBlink.current, INTRO_FACE_DELAY + INTRO_DURATION + 0.6)
-      return
+    } else {
+      // Randomised blink schedule — the one part that is deliberately not a pure
+      // function of phase, because a predictable blink reads as mechanical. It is
+      // also untouched by cursor tracking: a blob that watches you should still
+      // blink while it does it, or it stops looking like it's alive and starts
+      // looking like it's staring.
+      if (elapsed.current >= nextBlink.current) {
+        blinkStart.current = elapsed.current
+        if (!pairedBlink.current && Math.random() < 0.22) {
+          /*
+           * Blinks come in pairs more often than a uniform schedule ever
+           * produces, and the doubles are most of what sells a face as watching
+           * rather than ticking. The flag keeps a pair from chaining into a
+           * flutter: the second blink always reverts to the normal interval.
+           */
+          pairedBlink.current = true
+          nextBlink.current = elapsed.current + c.blinkDuration + 0.08
+        } else {
+          pairedBlink.current = false
+          const jitter = (Math.random() * 2 - 1) * c.blinkJitter
+          nextBlink.current = elapsed.current + Math.max(c.blinkEvery + jitter, 0.8)
+        }
+      }
+      blink.set(blinkAmount(elapsed.current - blinkStart.current, c))
     }
 
-    gazeX.set(ambientX)
-    gazeY.set(ambientY)
+    gazeX.set(finalX)
+    gazeY.set(finalY)
 
-    // Randomised blink schedule — the one part that is deliberately not a pure
-    // function of phase, because a predictable blink reads as mechanical. It is
-    // also untouched by cursor tracking: a blob that watches you should still
-    // blink while it does it, or it stops looking like it's alive and starts
-    // looking like it's staring.
-    if (elapsed.current >= nextBlink.current) {
-      blinkStart.current = elapsed.current
-      const jitter = (Math.random() * 2 - 1) * c.blinkJitter
-      nextBlink.current = elapsed.current + Math.max(c.blinkEvery + jitter, 0.8)
-    }
-    blink.set(blinkAmount(elapsed.current - blinkStart.current, c))
+    /*
+     * Swap the lean `idleAt` baked in for the one the final gaze asks for.
+     *
+     * `idleAt` leaned toward its *own* drift, which is the right answer for an
+     * export and the wrong one the moment a cursor takes the gaze over — the eyes
+     * would be on the pointer while the shoulders tipped somewhere else. With no
+     * cursor and no intro this difference is exactly zero, which is what keeps the
+     * preview pixel-identical to the exported frame.
+     */
+    state.tx += leanTx - state.lean.tx
+    state.ty += leanTy - state.lean.ty
+    state.rotate += leanRot - state.lean.rotate
+
+    bodyRef.current?.setAttribute('transform', idleTransform(state))
   })
 
   return { blink, gazeX, gazeY, bodyRef }

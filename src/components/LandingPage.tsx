@@ -64,14 +64,16 @@ const TONE: Record<ButtonTone, string> = {
 }
 
 /*
- * `flex-1` on small screens and `flex-initial` from `sm:` up is what keeps a
- * pair of buttons side by side on a phone: they split the row evenly instead of
- * each claiming its content width and wrapping the second one onto its own line.
- * `min-w-0` lets that split actually shrink them, and the padding steps down at
- * the same breakpoint so the labels still fit at 320px.
+ * Sized to their content at *every* width, so a phone gets the same pair of pills
+ * a desktop does rather than two half-width slabs. They were stretched with
+ * `flex-1` below `sm:` to guarantee they'd share a row; they don't need it —
+ * "Create a Bloub →" and "GitHub" together measure well inside the 280px a 320px
+ * phone leaves after padding, and the row never wraps because `ButtonRow` is
+ * `flex-row` with no `flex-wrap`. The padding still steps down at `sm:` so the
+ * labels keep their breathing room on the narrowest screens.
  */
 const BUTTON_BASE = cn(
-  'inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full sm:flex-initial',
+  'inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full',
   'px-4 text-[13px] font-semibold tracking-[-0.01em] whitespace-nowrap sm:px-6 sm:text-[13.5px]',
   'transition-[background-color,border-color,transform,box-shadow] duration-200',
   'active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
@@ -340,7 +342,17 @@ export function LandingPage() {
                 transition={{ type: 'spring', stiffness: 300, damping: 18 }}
                 className="group rounded-[1.75rem] border border-zinc-200/90 bg-white p-3 pb-4 shadow-[0_1px_2px_rgba(9,9,11,0.04),0_18px_36px_-28px_rgba(9,9,11,0.5)] transition-[border-color,box-shadow] duration-300 hover:border-zinc-300 hover:shadow-[0_1px_2px_rgba(9,9,11,0.05),0_26px_48px_-28px_rgba(9,9,11,0.55)] sm:p-5 sm:pb-6"
               >
-                <BlobPreview config={config} size="100%" idle={false} className={cn('transition-transform duration-300 group-hover:rotate-0', className)} />
+                {/*
+                  The square wrapper is load-bearing, not decoration. Grid items
+                  stretch to their row's height, which hands the card a *definite*
+                  height — and `size="100%"` then resolves the svg's height against
+                  that and swallows the entire box, pushing both labels out below
+                  the card's own background. Deriving the height from the width
+                  with `aspect-square` makes it independent of the row.
+                */}
+                <div className="aspect-square w-full">
+                  <BlobPreview config={config} size="100%" idle={false} className={cn('h-full w-full transition-transform duration-300 group-hover:rotate-0', className)} />
+                </div>
                 {/* Shape and mood on separate lines: the label is what the card is
                     demonstrating, so it shouldn't be one long run-on string at
                     11px on a 134px-wide phone card. */}

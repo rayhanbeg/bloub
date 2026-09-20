@@ -108,6 +108,13 @@ export interface IdleState {
   rotate: number
   gazeX: number
   gazeY: number
+  /**
+   * The postural lean already folded into `tx`/`ty`/`rotate`.
+   *
+   * Reported so a caller that overrides the gaze — the live preview, when a
+   * cursor takes it over — can back this out exactly instead of guessing.
+   */
+  lean: GazeLean
 }
 
 export const IDLE_REST: IdleState = {
@@ -118,6 +125,71 @@ export const IDLE_REST: IdleState = {
   rotate: 0,
   gazeX: 0,
   gazeY: 0,
+  lean: { tx: 0, ty: 0, rotate: 0 },
+}
+
+/**
+ * How asymmetric one breath is.
+ *
+ * `sin(p)` inhales and exhales at exactly the same speed, which is the one thing
+ * live bodies never do. Warping the angle by `p + k·sin(p)` runs the clock fast
+ * through the upswing and slow through the downswing — a quick draw and a long
+ * release — and because `sin(p)` is zero at both 0 and 2π the warp adds nothing
+ * at the seam, so the loop still closes exactly.
+ */
+const BREATH_SKEW = 0.22
+
+/**
+ * Micro-saccade amplitude, in viewBox units.
+ *
+ * Real eyes are never still: they flick in tiny increments even while fixating,
+ * and a gaze that holds *perfectly* steady is most of what makes a drawn face
+ * read as a sticker. At a third of a unit against a 28-unit eye this is far too
+ * small to notice as movement — it's only noticeable when it's missing.
+ */
+const SACCADE = 0.34
+
+/**
+ * The highest harmonic the micro-saccades put into the gaze.
+ *
+ * `sin(9p)·sin(2p)` is not a harmonic-9 wave — the product expands to harmonics
+ * 7 and 11 — so anything that *samples* the gaze into keyframes has to clear
+ * Nyquist for 11, not for 9. Exported here so the animated-SVG writer can't drift
+ * out of step with this file and quietly alias the flicker into a slow wander.
+ */
+export const SACCADE_HARMONIC = 11
+
+/**
+ * How much the body follows its own eyes.
+ *
+ * Looking somewhere is a whole-body act: the head leads, the shoulders tip after
+ * it. Coupling a little translation and rotation to the gaze is what turns "the
+ * eyes moved" into "it looked over there", and it costs one multiply. Deliberately
+ * understated — past about half a unit of drift the face starts to swim inside
+ * the body instead of carrying it.
+ */
+const GAZE_LEAN = { tx: 0.3, ty: 0.22, rotate: 0.085 } as const
+
+/** The body's postural response to looking at something. */
+export interface GazeLean {
+  tx: number
+  ty: number
+  rotate: number
+}
+
+/**
+ * The lean that belongs with a given gaze.
+ *
+ * Split out of `idleAt` because the live preview needs to recompute it: when a
+ * cursor takes the gaze over, the body has to lean toward the *cursor*, not toward
+ * the idle drift that `idleAt` already baked in. See `useIdleMotion`.
+ */
+export function gazeLean(gazeX: number, gazeY: number): GazeLean {
+  return {
+    tx: gazeX * GAZE_LEAN.tx,
+    ty: gazeY * GAZE_LEAN.ty,
+    rotate: gazeX * GAZE_LEAN.rotate,
+  }
 }
 
 /**
@@ -128,17 +200,33 @@ export const IDLE_REST: IdleState = {
 export function idleAt(phase: number, m: MoodMotion): IdleState {
   const p = phase * TAU
 
-  const breathe = Math.sin(p)
+  // Weighted rather than sinusoidal — see BREATH_SKEW. The bob rides the same
+  // curve, so the blob now hangs at the top of its rise and falls away quicker,
+  // which is the difference between floating and having weight.
+  const breathe = Math.sin(p + BREATH_SKEW * Math.sin(p))
   // Harmonic 2 for the jelly, so it completes two squashes per breath and still
   // lands exactly home at phase 1.
   const jelly = Math.sin(p * 2 + 0.7)
+  // Follow-through: the part of a soft body still settling after the breath has
+  // already turned around. A third harmonic trailing the second by roughly a
+  // quarter cycle, so the two never peak together and the wobble stops reading
+  // as a single clean hum.
+  const settle = Math.sin(p * 3 + 2.4)
+  const wob = (jelly + settle * 0.38) * m.wobble
 
   // A single bounce packed into the first third of the loop. Starts and ends at
   // zero, so it doesn't seam.
   let hop = 0
+  let airborne = 0
   if (m.hop !== 0) {
     const window = phase / 0.34
-    if (window < 1) hop = -Math.sin(window * Math.PI) * m.hop
+    if (window < 1) {
+      hop = -Math.sin(window * Math.PI) * m.hop
+      // Stretch while off the ground and recover on the way down. Tied to the
+      // arc itself, so it is zero at take-off and landing and needs no separate
+      // envelope to stay seamless.
+      airborne = Math.sin(window * Math.PI) * 0.05
+    }
   }
 
   // Two coprime-ish harmonics so the tremble reads as jitter, not as a hum.
@@ -146,28 +234,59 @@ export function idleAt(phase: number, m: MoodMotion): IdleState {
   const trembleY =
     m.tremble === 0 ? 0 : Math.cos(p * (m.trembleHarmonic + 3)) * m.tremble * 0.6
 
+  /*
+   * Bursty, not constant: a fast harmonic gated by a slow one, so the eyes sit
+   * still through part of the loop and flicker through the rest. Both factors are
+   * integer harmonics, so their product still lands home at phase 1 — and as a
+   * product of sines it expands to harmonics 7 and 11, which is where
+   * `SACCADE_HARMONIC` comes from.
+   */
+  const saccadeX = Math.sin(p * 9 + 2.1) * Math.sin(p * 2) * SACCADE
+  const saccadeY = Math.sin(p * 7 + 0.6) * Math.sin(p * 3) * SACCADE * 0.45
+
+  const lookX = Math.sin(p * m.gazeXHarmonic) * m.gazeX
+  const lookY = ((1 - Math.cos(p)) / 2) * m.gazeY + m.gazeBias
+  /*
+   * The lean follows the deliberate look and not the jitter: a saccade moves the
+   * eye, never the head. Keeping the fast harmonics out of the body transform
+   * also keeps its exported keyframe track at the cheap 24-sample baseline.
+   */
+  const lean = gazeLean(lookX, lookY)
+
   return {
-    tx: trembleX,
-    ty: -breathe * m.bob + m.sag + hop + trembleY,
+    tx: trembleX + lean.tx,
+    ty: -breathe * m.bob + m.sag + hop + trembleY + lean.ty,
     // Breathing is volume-preserving: as it swells vertically it narrows, which
     // is what stops it looking like a zoom.
-    scaleX: (1 - breathe * m.breath * 0.65 + jelly * 0.006 * m.wobble) * m.scale,
-    scaleY: (1 + breathe * m.breath + jelly * 0.004 * m.wobble) * m.scale * m.squash,
-    rotate: jelly * 0.55 * m.wobble + Math.sin(p) * m.lean + m.tilt,
-    gazeX: Math.sin(p * m.gazeXHarmonic) * m.gazeX,
-    gazeY: ((1 - Math.cos(p)) / 2) * m.gazeY + m.gazeBias,
+    scaleX: (1 - breathe * m.breath * 0.65 + wob * 0.006 - airborne * 0.8) * m.scale,
+    scaleY: (1 + breathe * m.breath + wob * 0.004 + airborne) * m.scale * m.squash,
+    rotate: wob * 0.55 + Math.sin(p) * m.lean + m.tilt + lean.rotate,
+    gazeX: lookX + saccadeX,
+    gazeY: lookY + saccadeY,
+    lean,
   }
 }
 
 /**
  * How open the eyes are, `1` fully open down to `1 - blinkDepth` shut.
  *
+ * Asymmetric on purpose. A lid is pulled shut by a muscle and opens by releasing
+ * one, so it snaps down in roughly a third of the blink and drifts back up over
+ * the rest; a symmetric half-sine reads as a slow, deliberate wink instead of a
+ * blink. Both halves are raised cosines, so the two meet flat at the bottom and
+ * leave the ends with no velocity — no hard stop at either extreme.
+ *
  * @param elapsed Seconds since this blink started. Outside the blink, returns 1.
  */
 export function blinkAmount(elapsed: number, m: MoodMotion): number {
   if (elapsed < 0 || elapsed > m.blinkDuration) return 1
-  // A half-sine closes and reopens with no hard stop at either end.
-  return 1 - Math.sin((elapsed / m.blinkDuration) * Math.PI) * m.blinkDepth
+  const t = elapsed / m.blinkDuration
+  const CLOSE = 0.38
+  const shut =
+    t < CLOSE
+      ? 0.5 - 0.5 * Math.cos((t / CLOSE) * Math.PI)
+      : 0.5 + 0.5 * Math.cos(((t - CLOSE) / (1 - CLOSE)) * Math.PI)
+  return 1 - shut * m.blinkDepth
 }
 
 /** Phase within the loop at which an exported animation blinks. */
